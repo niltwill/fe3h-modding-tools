@@ -13,11 +13,11 @@ if __name__ == "__main__":
     loop_start = int(sys.argv[2])
     loop_length = int(sys.argv[3])
 
-    ## update file size info too
+    # read file (for in-place editing)
     with open(filename, "rb") as f:
         data = bytearray(f.read())
 
-    # Update total file size at offsets 52 and 56
+    # Update at offsets 52 and 56
     data[52:56] = pack("<I", loop_start)
     data[56:60] = pack("<I", loop_length)
 
