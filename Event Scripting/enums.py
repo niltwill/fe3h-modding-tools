@@ -1627,7 +1627,8 @@ event_param_definitions = {
     45: { # support points
         1: ("support_character", enumCharacter),
         2: ("support_points", enumSupportPoints),
-        **{i: (f"param{i}", None) for i in range(3, 12)},
+        3: ("support_value", None),
+        **{i: (f"param{i}", None) for i in range(4, 12)},
     },
     54: { # camera focus on 2 chars
         1: ("character1", enumCharacter),
