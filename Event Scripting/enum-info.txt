@@ -1,4 +1,4 @@
 Animation: Used when character isn't speaking
-Camera Fade: Can fade into new cube scene
+Camera Fade: Can fade into new cube scene (cutscene/setting)
 Dialogue Choices: The conditional block of the first choice will be between 'Conditional Statement' and 'Start of Conditional'
 Conditional Statement: Between 'Conditional Statement' and 'Start of Conditional' is the else statement
