@@ -1,0 +1,79 @@
+import json
+import struct
+import sys
+import os
+
+def align_offset(offset, align_to=4):
+    return (offset + (align_to - 1)) & ~(align_to - 1)
+
+def write_captions_from_json(json_path):
+    with open(json_path, "r", encoding="utf-8") as f:
+        captions = json.load(f)
+
+    magic = 0x2962
+    count = len(captions)
+    header_size = 4 + 4 + 4 * count
+
+    # First, calculate placeholder offsets to get correct spacing
+    ptr_table = []
+    current_offset = header_size
+
+    # We'll need to do a dry run to compute each entry's block size
+    blocks = []
+
+    for entry in captions:
+        block = bytearray()
+        block += struct.pack("<f", float(entry["start_time"]))
+        block += struct.pack("<f", float(entry["duration"]))
+        text_bytes = entry["text"].encode("utf-8") + b'\x00'
+        block += text_bytes
+        
+        # If it's a command instruction, add extra 4-byte padding
+        if "<" in entry["text"] and ">" in entry["text"]:
+            block += b'\x00' * 4
+        elif "..." in entry["text"]:
+            block += b'\x00' * 4
+
+        blocks.append(block)
+
+    # Compute real offsets using padding derived from next offset (if possible)
+    data_blocks = bytearray()
+    real_ptrs = []
+    for i, block in enumerate(blocks):
+        real_ptrs.append(current_offset)
+
+        # If there's a next block, compute the expected size and pad accordingly
+        if i + 1 < len(blocks):
+            # Use aligned offset as estimated next_ptr
+            next_offset = current_offset + len(blocks[i])
+            next_offset = align_offset(next_offset, 4)
+            expected_size = next_offset - current_offset
+        else:
+            # Last block: align to 4 bytes
+            expected_size = align_offset(len(block), 4)
+
+        padding = expected_size - len(block)
+        block += b'\x00' * padding
+
+        data_blocks += block
+        current_offset += len(block)
+
+    # Write final binary
+    output_path = os.path.splitext(json_path)[0] + ".bin"
+    with open(output_path, "wb") as out:
+        out.write(struct.pack("<I", magic))
+        out.write(struct.pack("<I", count))
+        for ptr in real_ptrs:
+            out.write(struct.pack("<I", ptr))
+        out.write(data_blocks)
+
+    print(f"Rebuilt caption file written to: {output_path}")
+
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("At location: common/common/caption/")
+        print("E.g.: 29336-29441, 29830-30013 (English)")
+        print("Usage: python rebuild-captions.py <caption_file.json>")
+        print("Make sure you also have the original BIN file saved as <caption_file>-original.bin")
+    else:
+        write_captions_from_json(sys.argv[1])
