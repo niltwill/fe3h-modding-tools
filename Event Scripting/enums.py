@@ -1,5 +1,5 @@
 # FE3H: Event Scripting Tool
-# To be loaded with "text-events.py"
+# To be loaded with "event-script.py"
 
 ### Enum definitions for structures (very incomplete)
 
