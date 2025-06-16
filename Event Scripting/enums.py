@@ -78,6 +78,96 @@ enumPlayAt = { # unused
     30: "Start_Of_Next_Dialogue",
 }
 
+enumRotation = {
+    1: "Clockwise",
+    2: "Counterclockwise",
+}
+
+enumEyesOpen = {
+    0: "Closed",
+    1: "Open",
+}
+
+enumBGM = {
+    0: "FodlanWinds",
+    2: "TearingThroughHeaven",
+    4: "RoarOfDominion",
+    6: "ChasingDaybreak",
+    8: "TheLongRoad",
+    10: "BlueSkiesAndABattle",
+    12: "BetweenHeavenAndEarth",
+    14: "GodShatteringStar",
+    16: "AFuneralOfFlowers",
+    18: "TheApexOfTheWorld",
+    20: "TempestOfSeasons",
+    24: "ShambhalaAreaSeventeenRedux",
+    26: "DwellingsOfTheAncientGods",
+    28: "CorridorOfTheTempest",
+    32: "WrathStrike",
+    34: "TheVergeOfDeath",
+    38: "PathsThatWillNeverCross",
+    40: "IndomitableWill",
+    44: "TheShackledWolves",
+    46: "AtWhatCost",
+    48: "MapBattleBossReservedA",
+    49: "MapBattleBossReservedB",
+    50: "MapBattleBossReservedC",
+    51: "MapBattleBossReservedD",
+    52: "TheSpiritDais",
+    54: "GuardianOfStarlight",
+    55: "GazingAtSirius",
+    56: "SongOfTheNabateans",
+    57: "ThoseWhoSowDarkness",
+    58: "RespiteAndSunlight",
+    59: "AGentleBreeze",
+    60: "BeneathTheBanner",
+    61: "RecollectionAndRegret",
+    62: "SomewhereToBelong",
+    63: "CalmWindsOverGentleWaters",
+    64: "Tactics",
+    65: "Anxiety",
+    66: "TheLeadersPath",
+    67: "KingOfLions",
+    68: "GoldenDeerAndCrescentMoon",
+    69: "ADarkSign",
+    70: "Spiderweb",
+    71: "MaskOfFire",
+    72: "DarkCloudsGather",
+    73: "ArcanaCode",
+    74: "BeyondTheCrossroads",
+    75: "ALonelyFigure",
+    76: "AVowRemembered",
+    77: "APlaceToRest",
+    78: "APromise",
+    79: "Unfulfilled",
+    81: "FunnyFootsteps",
+    82: "WordsToBelieveIn",
+    83: "LearningLessons",
+    84: "SeekingNewHeights",
+    85: "HungryMarch",
+    86: "BattleOnTheWaterfront",
+    88: "HopeAsAMelody",
+    89: "TeatimeJoy",
+    91: "Farewell",
+    92: "WhiteHeronWaltz",
+    95: "BurningUp",
+    96: "ThreeHousesMainTheme",
+    97: "TheCrestOfFlames",
+    98: "LifeAtGarregMachMonastery",
+    99: "BrokenRoutine",
+    100: "ScalesOfTheGoddess",
+    104: "AsSwiftAsWind",
+    105: "AsFierceAsFire",
+    106: "TheLandBelovedByTheGoddess",
+    107: "ThreeCrowns",
+    108: "TheDreamIsOver",
+    110: "AStarInTheMorningSky",
+    111: "StillHorizon",
+    112: "TheEdgeOfDawn",
+    113: "TheColorOfSunrise",
+    114: "TheEdgeOfDawnSeasonsOfWarfare",
+}
+
 enumSoundEffect = {  # unused
     33: "Door_Closes",
     35: "Door_Knock",
@@ -1232,53 +1322,246 @@ enumCharacter = {
 
 # Define events
 """
-Possibly character-related event types:
+All event types:
+
+* = known
+? = unsure if correct
+
+0*
+1*
+3*
+4*
+5*
+6
+7
+9*
+10
+11*
+13*
+15*
+16
+17?
+18*
+19
+20
+22
+23*
+24*
+25?
+26
+27
+28
+29
+30
+31
+33*
+34
+35*
+36*
+37*
+38
+39
+40
+41
+42
+43
+45*
+46
+49
+52
+54*
+57
+59
+64
+66
+67*
+69*
+73
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89*
+90
+91
+93
+94
+95
+96*
+97
+98*
+99*
+100
+101
+102
+103
+104
+105*
+106
+107
+108
+111
+112
+113
+114
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128*
+129
+130
+131
+132
+133*
+134
+135*
+136
+138
+139
+140*
+141
+143
+144
+145
+146
+147
+148
+149
+150
+153
+154
+"""
+
+"""
+Most common top event types (with the most occurrences) which are not known,
+so these are the ones that should be figured out ASAP, from top to bottom:
+
+94
+73
+87
+30
+28
+66
+93
+43
+102
+79
+104
+91
+100
+83
+31
+29
+112
+25?
+17?
+123
+64
+138
+26
+59
+16
+122
+78
+19
+101
+88
+146
+27
+113
+6
+7
+114
+97
+38
+127
+34
+46
+10
+107
+106
+133
+80
+111
+95
+139
+147
+22
+125
+85
+86
+121
+126
+20
+108
+136
+
+"""
+
+
+"""
+Possibly character-related event types (Sothe, first cutscene):
 43
 57
 85
-98
 102
 144
 """
 
 known_event_names = {
-    0: "Cube Scene",
+    0: "Setup Cutscene",
     1: "Character List",
     3: "Dialogue Box",
     4: "Scene Event",
     5: "Scene Character Event",
+    9: "House Selection Event",
     11: "Animation",
-    13: "Camera Change",
-    15: "Camera Standard",
-    16: "BGM Change",
-    17: "Sound Effect",
+    13: "Pause for X frames",
+    15: "BGM Change",
+    17: "Sound Effect", # is this correct?
     18: "Mini Card",
     23: "Body Motion",
     24: "Head Motion X",
-    25: "Camera Fade",
+    25: "Camera Fade", # is this correct?
     33: "Dialogue Choices",
     35: "Conditional Statement",
     36: "End of Conditional",
     37: "Start of Conditional",
     45: "Support Points",
+    54: "Camera Focus on 2 Chars",
+    67: "Rotate Character",
     69: "Head Motion Y",
+    89: "Single Dialogue Option",
     96: "Emote Effect",
+    98: "Character Eyes",
+    99: "Route Change",
     105: "Large Card",
+    128: "Check Event Flag",
+    133: "Sustain Music Past Cutscene",
+    135: "Delay Next Animation/Motion for X frames",
+    140: "Camera Position",
 }
 
 event_param_definitions = {
-    0: {  # cube scene
-        1: ("scene1", enumCubeScene),
-        2: ("scene2", None),
-        3: ("scene3", None),
-        4: ("scene4", None),
-        5: ("scene5", None),
-        6: ("scene6", None),
-        7: ("scene7", None),
-        8: ("scene8", None),
-        9: ("scene9", None),
-        10: ("scene10", None),
-        11: ("scene11", None),
+    0: {  # setup_cutscene
+        1: ("bg_img", enumCubeScene),
+        2: ("unknown", None),
+        3: ("pos_layout", None),
+        **{i: (f"param{i}", None) for i in range(4, 12)},
     },
     1: {  # character list
         i: (f"char{i}", enumCharacter) for i in range(1, 12)
@@ -1289,12 +1572,7 @@ event_param_definitions = {
         3: ("animation", enumAnimation),
         4: ("portrait_expression", enumPortraitExpression),
         5: ("voice_line", None),
-        6: ("param6", None),
-        7: ("param7", None),
-        8: ("param8", None),
-        9: ("param9", None),
-        10: ("param10", None),
-        11: ("param11", None),
+        **{i: (f"param{i}", None) for i in range(6, 12)},
     },
     4: {  # scene event
         1: ("event_function", enumSceneEvent),
@@ -1304,14 +1582,26 @@ event_param_definitions = {
         1: ("event_function", enumSceneCharacterEvent),
         **{i: (f"char{i-1}", enumCharacter) for i in range(2, 12)},
     },
+    9: {i: (f"param{i}", None) for i in range(1, 12)},  # house selection event
     11: { # animation
         1: ("character", enumCharacter),
         2: ("animation", enumAnimation),
         3: ("play_at", None),
         **{i: (f"param{i}", None) for i in range(4, 12)},
     },
-    16: {i: (f"param{i}", None) for i in range(1, 12)},  # BGM change
-    17: {i: (f"param{i}", None) for i in range(1, 12)},  # Sound effect
+    13: { # pause for X frames
+        1: ("frames", None),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    15: { # bgm change
+        1: ("bgm_id", enumBGM),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    17: {i: (f"param{i}", None) for i in range(1, 12)},  # Sound effect?
+    18: { # mini card
+        1: ("mini_card", enumCard),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
     23: { # body motion
         1: ("character", enumCharacter),
         **{i: (f"param{i}", None) for i in range(2, 12)},
@@ -1320,16 +1610,8 @@ event_param_definitions = {
         1: ("character", enumCharacter),
         **{i: (f"param{i}", None) for i in range(2, 12)},
     },
-    69: { # head motion y
-        1: ("character", enumCharacter),
-        **{i: (f"param{i}", None) for i in range(2, 12)},
-    },
-    18: { # mini card
-        1: ("mini_card", enumCard),
-        **{i: (f"param{i}", None) for i in range(2, 12)},
-    },
-    105: { # large card
-        1: ("large_card", enumCard),
+    25: { # camera fade
+        1: ("cube_scene", enumCubeScene),
         **{i: (f"param{i}", None) for i in range(2, 12)},
     },
     33: { # dialogue choices
@@ -1347,16 +1629,59 @@ event_param_definitions = {
         2: ("support_points", enumSupportPoints),
         **{i: (f"param{i}", None) for i in range(3, 12)},
     },
+    54: { # camera focus on 2 chars
+        1: ("character1", enumCharacter),
+        2: ("character2", enumCharacter),
+        3: ("camera_pos", None),
+        4: ("panning", None),
+        **{i: (f"param{i}", None) for i in range(5, 12)},
+    },
+    67: { # rotate character
+        1: ("character", enumCharacter),
+        2: ("param2", None),
+        3: ("rotation", None),
+        4: ("direction", enumRotation),
+        **{i: (f"param{i}", None) for i in range(5, 12)},
+    },
+    69: { # head motion y
+        1: ("character", enumCharacter),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    89: { # single dialogue option
+        1: ("unknown", None), # dialogue_type? some values here: 0 (for Byleth?), 2, 4
+        2: ("text_line", None),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
+    },
     96: { # emote effect
         1: ("character", enumCharacter),
         2: ("emote_effect", enumEmoteEffect),
         3: ("play_at", None),
         **{i: (f"param{i}", None) for i in range(4, 12)},
     },
-    13: {i: (f"param{i}", None) for i in range(1, 12)},  # Camera change
-    15: {i: (f"param{i}", None) for i in range(1, 12)},  # Camera standard
-    25: { # camera fade
-        1: ("cube_scene", enumCubeScene),
+    98: { # character eyes (opened or closed)
+        1: ("character", enumCharacter),
+        2: ("eyes", enumEyesOpen),
+        3: ("frames_to_perform_motion", None),
+        **{i: (f"param{i}", None) for i in range(4, 12)},
+    },
+    99: { # route change
+        1: ("route_id", None),
         **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    105: { # large card
+        1: ("large_card", enumCard),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    128: {i: (f"param{i}", None) for i in range(1, 12)},  # check event flag
+    133: {i: (f"param{i}", None) for i in range(1, 12)},  # sustain music past cutscene
+    135: { # motion for X frames
+        1: ("frames", None),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    140: { # camera position
+        1: ("x", None),
+        2: ("y", None),
+        3: ("z", None),
+        **{i: (f"param{i}", None) for i in range(4, 12)},
     },
 }
