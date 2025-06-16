@@ -1514,7 +1514,7 @@ so these are the ones that should be figured out ASAP, from top to bottom:
 
 
 """
-Possibly character-related event types (Sothe, first cutscene):
+Possibly character-related event types (these apply to Sothis, first cutscene):
 43
 57
 85
