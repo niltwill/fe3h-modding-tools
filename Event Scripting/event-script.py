@@ -133,8 +133,8 @@ def main():
         print("Support scripts are numbered as: 6682–7437")
         print("")
         print("Usage:")
-        print("  To dump:   python text-events.py dump <input.bin> [output.txt]")
-        print("  To build:  python text-events.py build <input.txt> [output.bin]")
+        print("  To dump:   python event-script.py dump <input.bin> [output.txt]")
+        print("  To build:  python event-script.py build <input.txt> [output.bin]")
         print("")
         print("Note: The output file is optional, if not given, the input's filename will be used in the same directory")
         return
