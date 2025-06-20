@@ -358,6 +358,24 @@ def update_following_ktss_offsets(info2_sections, replaced_link_id, delta, data)
         #print(f"     old_offset = {old_offset}, new_offset = {new_offset}")
 
 
+# Update file size info
+def update_file_size(filename):
+    with open(filename, "rb") as f:
+        data = bytearray(f.read())
+
+    # Update total file size at offsets 24 and 28
+    final_size = len(data)
+    size_bytes = pack("<I", final_size)
+
+    data[24:28] = size_bytes  # First size field (decompressed size)
+    data[28:32] = size_bytes  # Second size field (compressed size)
+
+    # write to the file again (in-place)
+    with open(filename, "wb") as f:
+        f.write(data)
+
+    #print(f"Updated header file size at offsets 24 and 28 with {final_size} bytes.")
+
 # Main
 if __name__ == "__main__":
     if len(sys.argv) < 5:
@@ -444,22 +462,8 @@ if __name__ == "__main__":
 
         print(f"Replaced index {index} successfully.")
 
-        ## update file size info too
-        with open(filename, "rb") as f:
-            data = bytearray(f.read())
-
-        # Update total file size at offsets 24 and 28
-        final_size = len(data)
-        size_bytes = pack("<I", final_size)
-
-        data[24:28] = size_bytes  # First size field (decompressed size)
-        data[28:32] = size_bytes  # Second size field (compressed size)
-
-        # write to the file again (in-place)
-        with open(filename, "wb") as f:
-            f.write(data)
-
-        #print(f"Updated header file size at offsets 24 and 28 with {final_size} bytes.")
+        # update file size info too
+        update_file_size(filename)
     else:
         print(f"Error: Not a valid ktsl2stbin file: {filename}")
         exit(1)
@@ -537,6 +541,8 @@ if __name__ == "__main__":
                 f.close()
 
                 os.utime(filename2, None) # update timestamp manually
+
+                update_file_size(filename2) # update file size for ktsl2asbin, just in case it changes
             else:
                 print(f"No matching INFO2 found for link_id {link_id} in: {filename2}")
         else:

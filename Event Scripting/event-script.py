@@ -1,6 +1,5 @@
 # FE3H: Event Scripting Tool
-# Based on this binary template:
-# https://github.com/three-houses-research-team/010-binary-templates/blob/master/event/talk_event/script/event_script.bt
+# Based on 010 Editor binary templates
 
 import os
 import re
@@ -23,7 +22,16 @@ def get_enum_value(enum_dict, label):
     except ValueError:
         raise ValueError(f"Label '{label}' not found in enum.")
 
-def get_param_info(event_type, param_index):
+#def get_param_info(event_type, param_index):
+#    return enums.event_param_definitions.get(event_type, {}).get(param_index, (f"param{param_index}", None))
+
+def get_param_info(event_type, param_index, param_values=None):
+    # Exception for event_type 35
+    if event_type == 35 and param_index == 2 and param_values:
+        cond_val = param_values[0]
+        if cond_val == 4:
+            return ("route", enums.enumRoute)
+
     return enums.event_param_definitions.get(event_type, {}).get(param_index, (f"param{param_index}", None))
 
 def format_param_value(value, enum_cls):
@@ -55,7 +63,8 @@ def parse_text_events(input_file):
 
             formatted_params = []
             for index, value in enumerate(raw_params, 1):
-                param_name, param_enum = get_param_info(event_type, index)
+                #param_name, param_enum = get_param_info(event_type, index)
+                param_name, param_enum = get_param_info(event_type, index, raw_params)
                 value_str = format_param_value(value, param_enum)
                 formatted_params.append(f"{param_name}={value_str}")
 

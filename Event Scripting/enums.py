@@ -1,25 +1,339 @@
 # FE3H: Event Scripting Tool
 # To be loaded with "event-script.py"
 
-### Enum definitions for structures (very incomplete)
+### Dict definitions for structures
 
-enumCubeScene = {
-    0: "Classroom",
-    1: "Dormitory_Room",
-    3: "Goddess_Tower",
-    6: "Training_Hall",
-    7: "Dining_Hall",
-    8: "Entrance_Hall",
-    10: "Knights_Hall",
-    13: "Greenhouse",
-    14: "Fishing_Area",
-    16: "Outside_Dormitory",
-    20: "Stable",
-    22: "Marketplace",
-    25: "Reception_Hall",
-    60: "Holy_Tomb",
+enumMonth = {
+    0: "GreatTreeMoon",
+    1: "GreatTreeMoon_",
+    2: "HarpstringMoon",
+    3: "GarlandMoon",
+    4: "BlueSeaMoon",
+    5: "VerdantRainMoon",
+    6: "HorsebowMoon",
+    7: "WyvernMoon",
+    8: "RedWolfMoon",
+    9: "EtherealMoon",
+    10: "GuardianMoon",
+    11: "PegasusMoon",
+    12: "LoneMoon",
+    4294967295: "No_Month_Label",
 }
 
+enumTimeOfDay = {
+    0: "Daytime",
+    1: "Evening",
+    2: "Nighttime",
+    3: "Daytime2",
+    4: "Morning",
+    5: "Afternoon",
+    6: "Late_Night",
+    255: "Not_Used_Label",
+}
+
+enumLocation = {
+    0: "Audience_Chamber_0",
+    1: "Advisory_Room_1",
+    2: "Meeting_Room_2",
+    3: "Reception_Hall_3",
+    4: "Entrance_Hall_4",
+    5: "Cathedral_5",
+    6: "Dormitory_Quarters_6",
+    7: "Dormitory_Hallway_7",
+    8: "Officers_Academy_8",
+    9: "Goddess_Tower_9",
+    10: "Training_Grounds_10",
+    11: "Dining_Hall_11",
+    12: "Courtyard_12",
+    13: "Knights_Hall_13",
+    14: "Library_14",
+    15: "Infirmary_15",
+    16: "Star_Terrace_16",
+    17: "Star_Terrace_Corridor_17",
+    18: "Greenhouse_18",
+    19: "Stable_19",
+    20: "Captains_Quarter_20",
+    21: "Crest_Scholar_Office_21",
+    22: "Noble_Guest_Quarters_22",
+    23: "Hallway_23",
+    24: "Basement_Entrance_24",
+    25: "Throne_Room_25",
+    26: "Remire_Village_Empire_Terrority_26",
+    27: "Black_Eagles_Classroom_27",
+    28: "Blue_Eagles_Classroom_28",
+    29: "Golden_Deer_Classroom_29",
+    30: "Zanado_the_Red_Canyon_30",
+    31: "Magdred_Way_31",
+    32: "Sealed_Forest_32",
+    33: "Conand_Tower_33",
+    34: "Dormitory_34",
+    35: "Underground_Passage_35",
+    36: "Jeritza_Room_36",
+    37: "Seteth_Office_37",
+    38: "Gronder_Field_38",
+    39: "Outer_City_Wall_39",
+    40: "The_Darkness_40",
+    41: "Holy_Tomb_41",
+    42: "Imperial_Palace_42",
+    43: "Holy_Mausoleum_43",
+    44: "Aillel_Valley_of_Torment_44",
+    45: "Great_Brigde_of_Myrddin_45",
+    46: "Farming_Village_46",
+    47: "Outside_the_Stables_47",
+    48: "Knights_Hall_48",
+    49: "Fort_Merceus_49",
+    50: "Embarr_the_Imperial_Captial_50",
+    51: "City_Streets_Embarr_the_Imperial_Capital_51",
+    52: "Outside_the_Palace_52",
+    53: "Shambhala_the_Underground_City_53",
+    54: "Fhirdiad_Kingdom_Captial_54",
+    55: "Royal_Castle_Fhridiad_Kingtom_Captial_55",
+    56: "City_Streets_Fhirdiad_56",
+    57: "City_Streets_Derdriu_the_Aquatic_Captial_57",
+    58: "Enbarr_Outskirts_58",
+    59: "Great_Bridge_of_Myrddin_Outskirts_59",
+    60: "Outside_the_Palace_Wall_Enbarr_60",
+    61: "Imperial_Army_Encampment_61",
+    62: "Monastery_Outskirts_62",
+    63: "Admininstrative_Office_Arianrhod_Fortress_City_63",
+    64: "Tailtean_Plains_64",
+    65: "Outside_the_Castle_Gate_Fhirdiad_65",
+    66: "Goneril_Terrority_Fodlan_Throat_Outskirt_66",
+    67: "Personal_Quarter_67", 
+    68: "Duscur_Region_Kingdom_Territory_68",
+    69: "Farming_Village_Kingdom_Territory_69",
+    70: "Brionac_Plataeu_70",
+    71: "Officers_Room_71",
+    72: "Forest_Hyrm_Territory_72",
+    73: "Temporary_Encampment_73",
+    74: "Forest_Brigid_74",
+    75: "Gloucester_Territory_75",
+    76: "Rhodos_Coast_76",
+    77: "Riegan_Territory_77",
+    78: "Garreg_Mach_Monastery_78",
+    79: "Fhirdiad_Kingdom_Capitial_Year_1181_79",
+    80: "Fhirdiad_Kingdom_Capitial_Year_1176_80",
+    81: "Outside_the_Gates_Deridru_81",
+    82: "Throme_Room_Enbarr_82",
+    83: "Near_Conand_Tower_83",
+    84: "Near_Fort_Merceus_84",
+    85: "Common_Room_85",
+    86: "Abyssian_Classroom_86",
+    87: "Blank_87",
+    88: "Abyssian_Residents_88",
+    89: "Passageway_89",
+    90: "The_Depths_90",
+    91: "Underground_Arena_91",
+    92: "Underneath_Garreg_Mach_92",
+    93: "Somewhere_in_the_Monastery_93",
+    4294967295: "No_Location_Label",
+}
+
+enumPosition = {
+    0: "Origin",
+    1: "Facing_Far_Left_1st_row",
+    2: "Facing_Left_1st_row",
+    3: "Facing_Center_1st_row",
+    4: "Facing_Right_1st_row",
+    5: "Facing_Far_Right_1st_row",
+    6: "Facing_Far_Left_2nd_row",
+    7: "Facing_Far_Right_2nd_row",
+    8: "Facing_Left_2nd_row",
+    9: "Facing_Center_2nd_row",
+    11: "Far_Right",
+    12: "Same_as_Orgin",
+    15: "On_Right",
+    16: "On_Left",
+    17: "Behind_Right",
+    18: "Behind_Left",
+    4294967295: "No_Position",
+}
+
+enumCameraPos54 = {
+    0: "Camera_Directly_Across",
+    1: "Angled_Left",
+    2: "Angled_Right",
+}
+
+enumCameraPos73 = {
+    0: "Camera_Directly_Facing",
+    1: "Camera_Slightly_Right",
+    2: "Camera_Slightly_Left",
+    3: "Camera_Face_Right_Side",
+    4: "Camera_Face_Left_Side",
+    5: "Camera_Behind_Left_Side_Face",
+    6: "Camera_Behind_Right_Side_Face",
+    7: "Camera_Directly_Facing_Further",
+    8: "Camera_Slightly_Left_Upper",
+    9: "Camera_Slightly_Right_Upper",
+    10: "Camera_Slightly_Right_Far",
+    11: "Camera_Slightly_Left_Far",
+    12: "Camera_Behind_Left_Far",
+    13: "Camera_Behind_Right_Far",
+    14: "Camera_Slightly_Left_Mid",
+    15: "Camera_Chest_of",
+    16: "Camera_Slightly_Right_Lower",
+    17: "Camera_Slightly_Left_Lower",
+    18: "Camera_Chest_of_mid",
+    19: "Camera_Behind_Far",
+}
+
+enumCameraPan73 = {
+    0: "Pan_from_Left",
+    1: "Pan_from_Right",
+    2: "Pan_from_Bottom",
+    3: "Pan_from_Top",
+    4: "Pan_Inwards",
+    5: "Pan_Outwards",
+    4294967295: "No_Panning",
+}
+
+enumRoute = {
+    0: "Black_Eagles",
+    1: "Blue_Lions",
+    2: "Golden_Deer",
+    3: "Crimson_Flower",
+    4: "White_Clouds",
+    5: "Cindered_Shadows",
+}
+
+enumCharStatus = {
+    0: "Recruited",
+    1: "Not_Recruited",
+    2: "Spared",
+    4: "Dead",
+    6: "Alive",
+}
+
+enumCompleted = {
+    0: "Completed",
+    1: "Not_Completed",
+}
+
+enumVisualEffect = {
+    0: "Blackscreen",
+    2: "Dark_Hazy",
+}
+
+enumEffectStatus = {
+    0: "Effect_Off",
+    1: "Effect_On",
+}
+
+enumMapID = {
+    0: "Prologue_0",
+    1: "Chapter_1",
+    2: "Chapter_2",
+    3: "Chapter_3",
+    4: "Chapter_4",
+    5: "Chapter_5",
+    6: "Chapter_6",
+    7: "Chapter_7",
+    8: "Chapter_8",
+    9: "Chapter_9",
+    10: "Chapter_10",
+    11: "Chapter_11",
+    12: "Chapter_12",
+    13: "Chapter_13",
+    14: "Chapter_14",
+    15: "Chapter_15",
+    16: "Chapter_16",
+    17: "Chapter_17",
+    18: "unusedGronderMap_18",
+    19: "unusedFortMerceusMap_19",
+    20: "VW18_20",
+    21: "AM18_21",
+    22: "VW19_22",
+    23: "AM19_23",
+    24: "VW20_24",
+    25: "AM20_25",
+    26: "VW_21_26",
+    27: "AM21_27",
+    28: "SS21_28",
+    29: "VW22_39",
+    30: "AM22_30",
+    31: "CF12_31",
+    32: "CF13_32",
+    33: "CF14_33",
+    34: "CF15_34",
+    35: "CF16_35",
+    36: "CF17_36",
+    37: "CF18_37",
+    38: "Rhea_Paralogue_38",
+    39: "Dimitri_Paralogue_39",
+    40: "Edelgard_Paralogue_40",
+    41: "Claude_Paralogue_41",
+    42: "Sothis_Paralogue_42",
+    43: "Dedue_Paralogue_43",
+    44: "Felix_Paralogue_44",
+    45: "AsheC_atherine_Paralogue_45",
+    46: "Sylvain_46",
+    47: "Caspar_Mercedes_Paralogue_47",
+    48: "Annette_Gilbert_Paralogue_48",
+    49: "Ingrid_Dorothea_Paralogue_49",
+    50: "Hubert_Paralogue_50",
+    51: "Ferdinand_Lysithea_Paralogue_51",
+    52: "Linhardt_Leonie_Paralogue_52",
+    53: "Petra_Bernadetta_Paralogue_53",
+    54: "Lorenz_Paralogue_54",
+    55: "Raphael_Ignatz_Paralogue_55",
+    56: "Marianne_Paralogue_56",
+    57: "Hilda_Cyril_Paralogue_57",
+    58: "Flayn_Seteth_Paralogue_58",
+    59: "Manuela_Hanneman_Paralogue_59",
+    60: "Alois_Shamir_Paralogue_60",
+}
+
+enumCubeScene = {
+    0: "Classroom_0",
+    1: "Dormitory_Room_1",
+    2: "Cathedral_2",
+    3: "Goddess_Tower_3",
+    4: "Office_1_4", # Seteth or Hanneman
+    5: "Captains_Quarters_5",
+    6: "Training_Hall_6",
+    7: "Dining_Hall_7",
+    8: "Entrance_Hall_8",
+    9: "Infirmary_9",
+    10: "Knights_Hall_10",
+    11: "Audience_Chamber_11",
+    12: "Library_12",
+    13: "Greenhouse_13",
+    14: "Fishing_Area_14",
+    15: "Hallway_15",
+    16: "Outside_Dormitory_16",
+    17: "Outside_Classrom_17",
+    18: "Rhea_Room_18",
+    19: "Rooftop_3rd_Floor_19",
+    20: "Stable_20",
+    21: "Bugged21",
+    22: "Marketplace_22",
+    23: "Common_Room_23",
+    24: "Office_2_24", # Seteth or Hanneman
+    25: "Reception_Hall_25",
+    26: "Archbishop_Room_26",
+    28: "Sothis_Throne_28",
+    29: "Meeting_Room_29",
+    33: "Goddess_Tower2_33",
+    60: "Holy_Tomb_60",
+    74: "Remire_Village_74",
+    75: "Red_Canyon_75",
+    76: "Madgred_Way_76",
+    77: "Gronder_Field_77",
+    78: "Deiridu_Port_78",
+    79: "Arihanrod_79",
+    80: "Outside_Enbarr_Palace_80",
+    81: "Tailtean_Plains_81",
+    82: "Sealed_Forest_82",
+    84: "Fort_Merceus_84",
+    86: "Imperial_Camp_86",
+    87: "House_Prologue_87",
+    90: "Fhirdiad_Castle_90",
+}
+
+# enumPortraitExpression:
+# 6-12 are extra ones (character-specific).
+# + Dimitri post time-skip needs his own custom set for these, eh
 enumPortraitExpression = {
     0: "Neutral",
     1: "Happy",
@@ -38,14 +352,17 @@ enumSceneEvent = { # Might be relative to cube map pos
 }
 
 enumSceneCharacterEvent = { # Might be relative to cube map pos
+    0: "Character_Disappearing_Warping",
     2: "Character_Walk_Out", # Left
     3: "Character_Turn_Around_And_Walk_Out",
     5: "Character_Run_Out",  # Right
 }
 
 enumConditionalStatement = {
+    0: "Dialogue_Options",
     1: "If_Byleth_Is_Female",
-    3: "UNUSED_3",
+    3: "Check_Condition_Slot",
+    4: "Route_Check",
     5: "UNUSED_5",
 }
 
@@ -64,7 +381,25 @@ enumAnimation = {
     19: "Hand_On_Chin_To_Neutral",
     21: "Stretching_Arms",
     22: "Hands_Behind_Head",
+    23: "Arms_Crossed",
     27: "Swaying_Side_To_Side",
+}
+
+enumEmoteEffect = {
+    0: "Sparkle",
+    1: "Sweat_Drop",
+    2: "Sweating",
+    4: "Shock",
+    7: "Bothered",
+    10: "Chatter",
+    11: "Anger",
+    12: "Bubbles",
+    13: "Music_Notes",
+}
+
+enumSupportPoints = {
+    0: "Gain",
+    1: "Loss",
 }
 
 enumHead_Move = { # unused
@@ -88,107 +423,104 @@ enumEyesOpen = {
     1: "Open",
 }
 
+enumBool = {
+    0: "False",
+    1: "True",
+}
+
 enumBGM = {
-    0: "FodlanWinds",
-    2: "TearingThroughHeaven",
-    4: "RoarOfDominion",
-    6: "ChasingDaybreak",
-    8: "TheLongRoad",
-    10: "BlueSkiesAndABattle",
-    12: "BetweenHeavenAndEarth",
-    14: "GodShatteringStar",
-    16: "AFuneralOfFlowers",
-    18: "TheApexOfTheWorld",
-    20: "TempestOfSeasons",
-    24: "ShambhalaAreaSeventeenRedux",
-    26: "DwellingsOfTheAncientGods",
-    28: "CorridorOfTheTempest",
-    32: "WrathStrike",
-    34: "TheVergeOfDeath",
-    38: "PathsThatWillNeverCross",
-    40: "IndomitableWill",
-    44: "TheShackledWolves",
-    46: "AtWhatCost",
-    48: "MapBattleBossReservedA",
-    49: "MapBattleBossReservedB",
-    50: "MapBattleBossReservedC",
-    51: "MapBattleBossReservedD",
-    52: "TheSpiritDais",
-    54: "GuardianOfStarlight",
-    55: "GazingAtSirius",
-    56: "SongOfTheNabateans",
-    57: "ThoseWhoSowDarkness",
-    58: "RespiteAndSunlight",
-    59: "AGentleBreeze",
-    60: "BeneathTheBanner",
-    61: "RecollectionAndRegret",
-    62: "SomewhereToBelong",
-    63: "CalmWindsOverGentleWaters",
-    64: "Tactics",
-    65: "Anxiety",
-    66: "TheLeadersPath",
-    67: "KingOfLions",
-    68: "GoldenDeerAndCrescentMoon",
-    69: "ADarkSign",
-    70: "Spiderweb",
-    71: "MaskOfFire",
-    72: "DarkCloudsGather",
-    73: "ArcanaCode",
-    74: "BeyondTheCrossroads",
-    75: "ALonelyFigure",
-    76: "AVowRemembered",
-    77: "APlaceToRest",
-    78: "APromise",
-    79: "Unfulfilled",
-    81: "FunnyFootsteps",
-    82: "WordsToBelieveIn",
-    83: "LearningLessons",
-    84: "SeekingNewHeights",
-    85: "HungryMarch",
-    86: "BattleOnTheWaterfront",
-    88: "HopeAsAMelody",
-    89: "TeatimeJoy",
-    91: "Farewell",
-    92: "WhiteHeronWaltz",
-    95: "BurningUp",
-    96: "ThreeHousesMainTheme",
-    97: "TheCrestOfFlames",
-    98: "LifeAtGarregMachMonastery",
-    99: "BrokenRoutine",
-    100: "ScalesOfTheGoddess",
-    104: "AsSwiftAsWind",
-    105: "AsFierceAsFire",
-    106: "TheLandBelovedByTheGoddess",
-    107: "ThreeCrowns",
-    108: "TheDreamIsOver",
-    110: "AStarInTheMorningSky",
-    111: "StillHorizon",
-    112: "TheEdgeOfDawn",
-    113: "TheColorOfSunrise",
-    114: "TheEdgeOfDawnSeasonsOfWarfare",
+    0: "FodlanWinds_0",
+    2: "TearingThroughHeaven_2",
+    4: "RoarOfDominion_4",
+    6: "ChasingDaybreak_6",
+    8: "TheLongRoad_8",
+    10: "BlueSkiesAndABattle_10",
+    12: "BetweenHeavenAndEarth_12",
+    14: "GodShatteringStar_14",
+    16: "AFuneralOfFlowers_16",
+    18: "TheApexOfTheWorld_18",
+    20: "TempestOfSeasons_20",
+    24: "ShambhalaAreaSeventeenRedux_24",
+    26: "DwellingsOfTheAncientGods_26",
+    28: "CorridorOfTheTempest_28",
+    32: "WrathStrike_32",
+    34: "TheVergeOfDeath_34",
+    38: "PathsThatWillNeverCross_38",
+    40: "IndomitableWill_40",
+    44: "TheShackledWolves_44",
+    46: "AtWhatCost_46",
+    48: "MapBattleBossReservedA_48",
+    49: "MapBattleBossReservedB_49",
+    50: "MapBattleBossReservedC_50",
+    51: "MapBattleBossReservedD_51",
+    52: "TheSpiritDais_52",
+    54: "GuardianOfStarlight_54",
+    55: "GazingAtSirius_55",
+    56: "SongOfTheNabateans_56",
+    57: "ThoseWhoSowDarkness_57",
+    58: "RespiteAndSunlight_58",
+    59: "AGentleBreeze_59",
+    60: "BeneathTheBanner_60",
+    61: "RecollectionAndRegret_61",
+    62: "SomewhereToBelong_62",
+    63: "CalmWindsOverGentleWaters_63",
+    64: "Tactics_64",
+    65: "Anxiety_65",
+    66: "TheLeadersPath_66",
+    67: "KingOfLions_67",
+    68: "GoldenDeerAndCrescentMoon_68",
+    69: "ADarkSign_69",
+    70: "Spiderweb_70",
+    71: "MaskOfFire_71",
+    72: "DarkCloudsGather_72",
+    73: "ArcanaCode_73",
+    74: "BeyondTheCrossroads_74",
+    75: "ALonelyFigure_75",
+    76: "AVowRemembered_76",
+    77: "APlaceToRest_77",
+    78: "APromise_78",
+    79: "Unfulfilled_79",
+    81: "FunnyFootsteps_81",
+    82: "WordsToBelieveIn_82",
+    83: "LearningLessons_83",
+    84: "SeekingNewHeights_84",
+    85: "HungryMarch_85",
+    86: "BattleOnTheWaterfront_86",
+    88: "HopeAsAMelody_88",
+    89: "TeatimeJoy_89",
+    91: "Farewell_91",
+    92: "WhiteHeronWaltz_92",
+    95: "BurningUp_95",
+    96: "ThreeHousesMainTheme_96",
+    97: "TheCrestOfFlames_97",
+    98: "LifeAtGarregMachMonastery_98",
+    99: "BrokenRoutine_99",
+    100: "ScalesOfTheGoddess_100",
+    104: "AsSwiftAsWind_104",
+    105: "AsFierceAsFire_105",
+    106: "TheLandBelovedByTheGoddess_106",
+    107: "ThreeCrowns_107",
+    108: "TheDreamIsOver_108",
+    110: "AStarInTheMorningSky_110",
+    111: "StillHorizon_111",
+    112: "TheEdgeOfDawn_112",
+    113: "TheColorOfSunrise_113",
+    114: "TheEdgeOfDawnSeasonsOfWarfare_114",
 }
 
-enumSoundEffect = {  # unused
-    33: "Door_Closes",
-    35: "Door_Knock",
-    95: "Raphael_Screaming",
-}
-
-enumEmoteEffect = {
-    0: "Sparkle",
-    1: "Sweat_Drop",
-    2: "Sweating",
-    4: "Shock",
-    7: "Bothered",
-    10: "Chatter",
-    11: "Anger",
-    12: "Bubbles",
-    13: "Music_Notes",
-}
-
-enumSupportPoints = {
-    0: "Gain",
-    1: "Loss",
+enumSoundEffect = {
+    28: "Audience1",
+    29: "Audience_Cheering",
+    33: "Door_Closes?",
+    35: "Door_Knock?",
+    61: "Bell_Rings",
+    62: "Drumroll",
+    76: "Heartbeat",
+    77: "Dining_Hall",
+    81: "Audience_Mumbling",
+    91: "Footsteps",
+    94: "Warping",
+    95: "Raphael_Screaming?",
 }
 
 enumCard = {
@@ -252,6 +584,245 @@ enumCard = {
     148: "Support_Catherine_Post_Timeskip",
     149: "Support_Shamir_Post_Timeskip",
     150: "Support_Cyril_Post_Timeskip",
+}
+
+enumItem = {
+    0: "Unarmed",
+    1: "Broken_Sword",
+    2: "Broken_Lance",
+    3: "Broken_Axe",
+    4: "Broken_Bow",
+    5: "Broken_Gauntlet",
+    16: "Iron_Sword",
+    7: "Steel_Sword",
+    8: "Silver_Sword",
+    9: "Brave_Sword",
+    10: "Killing_Edge",
+    11: "Training_Sword",
+    12: "Iron_Lance",
+    13: "Steel_Lance",
+    14: "Silver_Lance",
+    15: "Brave_Lance",
+    16: "Killer_Lance",
+    17: "Training_Lance",
+    18: "Iron_Axe",
+    19: "Steel_Axe",
+    20: "Silver_Axe",
+    21: "Brave_Axe",
+    22: "Killer_Axe",
+    23: "Training_Axe",
+    24: "Iron_Bow",
+    25: "Steel_Bow",
+    26: "Silver_Bow",
+    27: "Brave_Bow",
+    28: "Killer_Bow",
+    29: "Training_Bow",
+    30: "Iron_Gauntlets",
+    31: "Steel_Gauntlets",
+    32: "Silver_Gauntlets",
+    33: "Training_Gauntlets",
+    34: "Levin_Sword",
+    35: "Bolt_Axe",
+    36: "Magic_Bow",
+    37: "Javalin",
+    38: "Short_Spear",
+    39: "Spear",
+    40: "Hand_Axe",
+    41: "Short_Axe",
+    42: "Tomahawk",
+    43: "Longbow",
+    44: "Mini_Bow",
+    45: "Armorslayer",
+    46: "Rapier",
+    47: "Horseslayer",
+    48: "Hammer",
+    49: "Blessed_Lance",
+    50: "Blessed_Bow",
+    51: "Devil_Sword",
+    52: "Devil_Axe",
+    53: "Wo_Dao",
+    54: "Crescent_Sickle",
+    55: "Sword_of_Seiros",
+    56: "Sword_of_Begalta",
+    57: "Sword_of_Moralta",
+    58: "Cursed_Ashiya_Sword",
+    59: "Sword_or_Zoltan",
+    60: "Thunderbrand",
+    61: "Blutgang",
+    62: "Sword_of_the_Creator",
+    63: "Lance_of_Zoltan",
+    64: "Lance_of_Ruin",
+    65: "Areadbhar",
+    66: "Luin",
+    67: "Spear_of_Assal",
+    68: "Scythe_of_Sariel",
+    69: "Arrow_of_Indra",
+    70: "Freikugel",
+    71: "Crusher",
+    72: "Axe_of_Ukonvasara",
+    73: "Axe_of_Zoltan",
+    74: "Tathlum_Bow",
+    75: "The_Inexhaustiable",
+    76: "Bow_of_Zoltan",
+    77: "Failnaught_",
+    78: "Dragon_Claw",
+    79: "Mace",
+    80: "Athame",
+    81: "Ridill",
+    82: "Aymr",
+    83: "Dark_Sword_of_The_Creator",
+    84: "Venin_Edge",
+    85: "Venin_Lance",
+    86: "Venin_Axe",
+    87: "Vinen_Bow",
+    88: "Mercurius",
+    89: "Gradivus",
+    90: "Hauteclere",
+    91: "Parthia",
+    92: "Killer_Knuckles",
+    93: "Aura_Knuckles",
+    94: "Rusted_Sword_Iron",
+    95: "Rusted_Sword_Steel",
+    96: "Rusted_Sword_Silver",
+    97: "Rusted_Sword_Brave",
+    98: "Rusted_Sword_Mercurius",
+    99: "Rusted_Lance_Iron",
+    100: "Rusted_Lance_Steel",
+    101: "Rusted_Lance_Silver",
+    102: "Rusted_Lance_Brave",
+    103: "Rusted_Lance_Gradivus",
+    104: "Rusted_Axe_Iron",
+    105: "Rusted_Axe_Steel",
+    106: "Rusted_Axe_Silver",
+    107: "Rusted_Axe_Brave",
+    108: "Rusted_Axe_Hauteclere",
+    109: "Rusted_Bow_Iron",
+    110: "Rusted_Bow_Steel",
+    111: "Rusted_Bow_Silver",
+    112: "Rusted_Bow_Brave",
+    113: "Rusted_Bow_Parthia",
+    114: "Rusted_Gauntlets_Iron",
+    115: "Rusted_Gauntlets_Steel",
+    116: "Rusted_Gauntlets_Silver",
+    117: "Rusted_Gauntlets_Dragon_Claws",
+    118: "Iron_Sword_Plus",
+    119: "Steel_Sword_Plus",
+    120: "Silver_Sword_Plus",
+    121: "Brave_Sword_Plus",
+    122: "Killing_Edge_Plus",
+    123: "Training_Sword_Plus",
+    124: "Iron_Lance_Plus",
+    125: "Steel_Lance_Plus",
+    126: "Silver_Lance_Plus",
+    127: "Brave_Lance_Plus",
+    128: "Killer_Lance_Plus",
+    129: "Training_Lance_Plus",
+    130: "Iron_Axe_Plus",
+    131: "Steel_Axe_Plus",
+    132: "Silver_Axe_Plus",
+    133: "Brave_Axe_Plus",
+    134: "Killer_Axe_Plus",
+    135: "Training_Axe_Plus",
+    136: "Iron_Bow_Plus",
+    137: "Steel_Bow_Plus",
+    138: "Silver_Bow_Plus",
+    139: "Brave_Bow_Plus",
+    140: "Killer_Bow_Plus",
+    141: "Training_Bow_Plus",
+    142: "Iron_Gauntlets_Plus",
+    143: "Steel_Gauntlets_Plus",
+    144: "Silver_Gauntlets_Plus",
+    145: "Training_Gauntlets_Plus",
+    146: "Levin_Sword_Plus",
+    147: "Bolt_Axe_Plus",
+    148: "Magic_Bow_Plus",
+    149: "Javalin_Plus",
+    150: "Short_Spear_Plus",
+    151: "Spear_Plus",
+    152: "Hand_Axe_Plus",
+    153: "Short_Axe_Plus",
+    154: "Tomahawk_Plus",
+    155: "Longbow_Plus",
+    156: "Mini_Bow_Plus",
+    157: "Armorslayer_Plus",
+    158: "Rapier_Plus",
+    159: "Horseslayer_Plus",
+    160: "Hammer_Plus",
+    161: "Blessed_Lance_Plus",
+    162: "Blessed_Bow_Plus",
+    163: "Devil_Sword_Plus",
+    164: "Devil_Axe_Plus",
+    165: "Wo_Dao_Plus",
+    166: "Crescent_Sickle_Plus",
+    167: "Cursed_Ashiya_Sword_Plus",
+    168: "Sword_or_Zoltan_Plus",
+    169: "Lance_of_Zoltan_Plus",
+    170: "Arrow_of_Indra_Plus",
+    171: "Axe_of_Zoltan_Plus",
+    172: "Bow_of_Zoltan_Plus",
+    173: "Dragon_Claw_Plus",
+    174: "Mace_Plus",
+    175: "Venin_Edge_Plus",
+    176: "Venin_Lance_Plus",
+    177: "Venin_Axe_Plus",
+    178: "Vinen_Bow_Plus",
+    179: "Killer_Knuckles_Plus",
+    180: "Aura_Knuckles_Plus",
+    181: "Sublime_Sword_of_the_Creator",
+    182: "Dark_Thunderbrand",
+    183: "Dark_Blutgang",
+    184: "Dark_Lance_of_Ruin",
+    185: "Dark_Areadbhar",
+    186: "Dark_Luin",
+    187: "Dark_Freikugel",
+    188: "Dark_Crusher",
+    189: "Dark_Failnaught",
+    190: "Varha_Mushti",
+    600: "Leather_Shield",
+    192: "Iron_Shield",
+    193: "Steel_Shield",
+    194: "Silver_Shield",
+    195: "Talisman_Shield",
+    196: "Hexlock_Shield",
+    197: "Aegis_Shield",
+    198: "Ochain_Shield",
+    199: "Seiros_Shield",
+    200: "Aurora_Shield",
+    201: "Kadmos_Shield",
+    202: "Lampos_Shield",
+    203: "Accuracy_Ring",
+    204: "Critical_Ring",
+    205: "Evasion_Ring",
+    206: "Speed_Ring",
+    207: "March_Ring",
+    208: "Goddess_Ring",
+    209: "Prayer_Ring",
+    210: "Magic_Staff",
+    211: "Healing_Staff",
+    212: "Caduceus_Staff",
+    213: "Thyrsus",
+    214: "Rafail_Gem",
+    215: "Experience_Gem",
+    216: "Knowledge_Gem",
+    217: "Circe_Staff",
+    218: "Tomas_Staff",
+    219: "Armored_Knight_Shield",
+    220: "Great_Knight_Shield",
+    221: "Fortress_Knight_Shield",
+    222: "Asclepius",
+    223: "Dark_Aegis_Shield",
+    224: "Dark_Thyrsus",
+    225: "Dark_Rafail_Gem",
+    226: "Flame_Shield",
+    227: "Emperor_Shield",
+    228: "Black_Eagle_Pendant",
+    229: "Blue_Lion_Brooch",
+    230: "Golden_Deer_Bracelet",
+    231: "White_Dragon_Scarf",
+    232: "Chalice_of_Beginnings",
+    233: "Fetters_of_Dromi",
+    1009: "Bullion",
+    1010: "Large_Bullion",
 }
 
 enumCharacter = {
@@ -1314,6 +1885,7 @@ enumCharacter = {
 	1056: "Byleth_0_114",
 	1057: "Byleth_0_115",
 	1058: "Byleth_0_116",
+    4294967295: "No_Character",
 }
 
 ######################################
@@ -1321,209 +1893,8 @@ enumCharacter = {
 ######################################
 
 # Define events
-"""
-All event types:
-
-* = known
-? = unsure if correct
-
-0*
-1*
-3*
-4*
-5*
-6
-7
-9*
-10
-11*
-13*
-15*
-16
-17?
-18*
-19
-20
-22
-23*
-24*
-25?
-26
-27
-28
-29
-30
-31
-33*
-34
-35*
-36*
-37*
-38
-39
-40
-41
-42
-43
-45*
-46
-49
-52
-54*
-57
-59
-64
-66
-67*
-69*
-73
-78
-79
-80
-81
-82
-83
-84
-85
-86
-87
-88
-89*
-90
-91
-93
-94
-95
-96*
-97
-98*
-99*
-100
-101
-102
-103
-104
-105*
-106
-107
-108
-111
-112
-113
-114
-118
-119
-120
-121
-122
-123
-124
-125
-126
-127
-128*
-129
-130
-131
-132
-133*
-134
-135*
-136
-138
-139
-140*
-141
-143
-144
-145
-146
-147
-148
-149
-150
-153
-154
-"""
-
-"""
-Most common top event types (with the most occurrences) which are not known,
-so these are the ones that should be figured out ASAP, from top to bottom:
-
-94
-73
-87
-30
-28
-66
-93
-43
-102
-79
-104
-91
-100
-83
-31
-29
-112
-25?
-17?
-123
-64
-138
-26
-59
-16
-122
-78
-19
-101
-88
-146
-27
-113
-6
-7
-114
-97
-38
-127
-34
-46
-10
-107
-106
-133
-80
-111
-95
-139
-147
-22
-125
-85
-86
-121
-126
-20
-108
-136
-
-"""
-
-
-"""
-Possibly character-related event types (these apply to Sothis, first cutscene):
-43
-57
-85
-102
-144
-"""
-
 known_event_names = {
-    0: "Setup Cutscene",
+    0: "Cube Scene",
     1: "Character List",
     3: "Dialogue Box",
     4: "Scene Event",
@@ -1532,32 +1903,51 @@ known_event_names = {
     11: "Animation",
     13: "Pause for X frames",
     15: "BGM Change",
-    17: "Sound Effect", # is this correct?
-    18: "Mini Card",
+    16: "BGM Stop",
+    17: "Sound Effect",
+    18: "Image Mini Card",
     23: "Body Motion",
     24: "Head Motion X",
-    25: "Camera Fade", # is this correct?
+    25: "Camera Fade",
+    28: "Character Positions",
     33: "Dialogue Choices",
     35: "Conditional Statement",
     36: "End of Conditional",
     37: "Start of Conditional",
+    43: "Character Visibility",
     45: "Support Points",
+    46: "Set Flag 46",
     54: "Camera Focus on 2 Chars",
+    64: "Adjust Position",
     67: "Rotate Character",
     69: "Head Motion Y",
-    89: "Single Dialogue Option",
+    73: "Camera at Character",
+    78: "Recruitment List",
+    79: "Character Check",
+    83: "Visual Effect",
+    87: "Camera Movement",
+    89: "Single Dialogue Choice",
+    91: "All look at character",
+    94: "Character Looking",
+    95: "Item 95",
     96: "Emote Effect",
     98: "Character Eyes",
     99: "Route Change",
-    105: "Large Card",
+    100: "Camera 100",
+    105: "Image Big Card",
+    127: "Battle Completion Conditional",
     128: "Check Event Flag",
+    130: "Fancy Dialogue Choice Menu",
     133: "Sustain Music Past Cutscene",
-    135: "Delay Next Animation/Motion for X frames",
+    135: "Timed Next Motion/Animation",
     140: "Camera Position",
+    146: "Change Cube Label To",
+    147: "Item 147",
+    154: "Angry Dimitri",
 }
 
 event_param_definitions = {
-    0: {  # setup_cutscene
+    0: {  # cube scene (initialize or setup cutscene)
         1: ("bg_img", enumCubeScene),
         2: ("unknown", None),
         3: ("pos_layout", None),
@@ -1572,7 +1962,8 @@ event_param_definitions = {
         3: ("animation", enumAnimation),
         4: ("portrait_expression", enumPortraitExpression),
         5: ("voice_line", None),
-        **{i: (f"param{i}", None) for i in range(6, 12)},
+        6: ("play_voiceline", enumBool),
+        **{i: (f"param{i}", None) for i in range(7, 12)},
     },
     4: {  # scene event
         1: ("event_function", enumSceneEvent),
@@ -1597,7 +1988,14 @@ event_param_definitions = {
         1: ("bgm_id", enumBGM),
         **{i: (f"param{i}", None) for i in range(2, 12)},
     },
-    17: {i: (f"param{i}", None) for i in range(1, 12)},  # Sound effect?
+    16: { # bgm stop
+        1: ("bgm_id", enumBGM),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    17: { # bgm change
+        1: ("sfx", enumSoundEffect),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
     18: { # mini card
         1: ("mini_card", enumCard),
         **{i: (f"param{i}", None) for i in range(2, 12)},
@@ -1614,33 +2012,52 @@ event_param_definitions = {
         1: ("cube_scene", enumCubeScene),
         **{i: (f"param{i}", None) for i in range(2, 12)},
     },
+    28: {i: (f"char{i}_pos", None) for i in range(1, 12)},  # character positions
     33: { # dialogue choices
-        1: ("character", enumCharacter),
+        1: ("conditional_slot", None),
         **{i: (f"text_line{i-1}", None) for i in range(2, 12)},
     },
     35: { # conditional statement
         1: ("conditional_statement", enumConditionalStatement),
-        **{i: (f"param{i}", None) for i in range(2, 12)},
+        2: ("choice_slot", None),
+        3: ("choice_slot2", None),
+        **{i: (f"param{i}", None) for i in range(4, 12)},
     },
     36: {i: (f"param{i}", None) for i in range(1, 12)},  # End of conditional
     37: {i: (f"param{i}", None) for i in range(1, 12)},  # Start of conditional
+    43: { # character disappears?
+        1: ("character", enumCharacter),
+        2: ("appears", enumBool),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
+    },
     45: { # support points
         1: ("support_character", enumCharacter),
         2: ("support_points", enumSupportPoints),
-        3: ("support_value", None),
-        **{i: (f"param{i}", None) for i in range(4, 12)},
+        **{i: (f"param{i}", None) for i in range(3, 12)},
+    },
+    46: { # set flag 46
+        1: ("value", None),
+        2: ("flag", None),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
     },
     54: { # camera focus on 2 chars
-        1: ("character1", enumCharacter),
-        2: ("character2", enumCharacter),
-        3: ("camera_pos", None),
+        1: ("character1_back", enumCharacter),
+        2: ("character2_front", enumCharacter),
+        3: ("camera_pos", enumCameraPos54),
         4: ("panning", None),
+        **{i: (f"param{i}", None) for i in range(5, 12)},
+    },
+    64: { # adjust position
+        1: ("character", enumCharacter),
+        2: ("x-axis", None),
+        3: ("y-axis", None),
+        4: ("z-axis", None),
         **{i: (f"param{i}", None) for i in range(5, 12)},
     },
     67: { # rotate character
         1: ("character", enumCharacter),
-        2: ("param2", None),
-        3: ("rotation", None),
+        2: ("rotate_x", None),
+        3: ("duration", None),
         4: ("direction", enumRotation),
         **{i: (f"param{i}", None) for i in range(5, 12)},
     },
@@ -1648,9 +2065,52 @@ event_param_definitions = {
         1: ("character", enumCharacter),
         **{i: (f"param{i}", None) for i in range(2, 12)},
     },
+    73: { # camera at character
+        1: ("camera_pos", enumCameraPos73),
+        2: ("character", enumCharacter),
+        3: ("panning", enumCameraPan73),
+        **{i: (f"param{i}", None) for i in range(4, 12)},
+    },
+    78: { # recruitment list
+        **{i: (f"char{i}", enumCharacter) for i in range(1, 8)},
+        **{i: (f"param{i}", None) for i in range(9, 12)},
+    },
+    79: { # character check
+        1: ("conditional_slot", None),
+        2: ("char_status", enumCharStatus),
+        **{i: (f"char{i}", enumCharacter) for i in range(3, 12)},
+    },
+    83: { # visual effect
+        1: ("fx", enumVisualEffect),
+        2: ("effect_status", enumEffectStatus),
+        3: ("unknown", None),
+        **{i: (f"char{i}", enumCharacter) for i in range(4, 12)},
+    },
+    87: { # camera movement
+        1: ("camera_angle", None),
+        2: ("panning", enumCameraPan73),
+        3: ("unknown", None),
+        **{i: (f"char{i-3}", enumCharacter) for i in range(4, 12)},
+    },
     89: { # single dialogue option
         1: ("unknown", None), # dialogue_type? some values here: 0 (for Byleth?), 2, 4
         2: ("text_line", None),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
+    },
+    91: { # all look at char
+        1: ("character", enumCharacter),
+        **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    94: { # character looking
+        1: ("char1", enumCharacter),
+        2: ("char2", enumCharacter),
+        3: ("unknown", None),
+        4: ("angle", None),
+        **{i: (f"param{i}", None) for i in range(5, 12)},
+    },
+    95: { # item 95
+        1: ("item", enumItem),
+        2: ("character", enumCharacter),
         **{i: (f"param{i}", None) for i in range(3, 12)},
     },
     96: { # emote effect
@@ -1662,27 +2122,54 @@ event_param_definitions = {
     98: { # character eyes (opened or closed)
         1: ("character", enumCharacter),
         2: ("eyes", enumEyesOpen),
-        3: ("frames_to_perform_motion", None),
+        3: ("frames_for_motion", None),
         **{i: (f"param{i}", None) for i in range(4, 12)},
     },
     99: { # route change
-        1: ("route_id", None),
+        1: ("route_id", enumRoute),
         **{i: (f"param{i}", None) for i in range(2, 12)},
+    },
+    100: { # camera100
+        1: ("cameraPos", None),
+        2: ("panning", enumCameraPan73),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
     },
     105: { # large card
         1: ("large_card", enumCard),
         **{i: (f"param{i}", None) for i in range(2, 12)},
     },
-    128: {i: (f"param{i}", None) for i in range(1, 12)},  # check event flag
+    127: { # completed battle
+        1: ("map_id", enumMapID),
+        2: ("completion_status", enumCompleted),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
+    },
+    128: { # check event flag
+        1: ("flag", None),
+        2: ("value", None),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
+    },
+    130: {i: (f"param{i}", None) for i in range(1, 12)},  # fancy dialogue choice list
     133: {i: (f"param{i}", None) for i in range(1, 12)},  # sustain music past cutscene
     135: { # motion for X frames
         1: ("frames", None),
         **{i: (f"param{i}", None) for i in range(2, 12)},
     },
     140: { # camera position
-        1: ("x", None),
-        2: ("y", None),
-        3: ("z", None),
+        1: ("x-pos", None),
+        2: ("y-pos", None),
+        3: ("z-pos", None),
         **{i: (f"param{i}", None) for i in range(4, 12)},
     },
+    146: { # change cube label to
+        1: ("location", enumLocation),
+        2: ("timeOfDay", enumTimeOfDay),
+        3: ("month", enumMonth),
+        **{i: (f"param{i}", None) for i in range(4, 12)},
+    },
+    147: { # item 147
+        1: ("item", enumItem),
+        2: ("character", enumCharacter),
+        **{i: (f"param{i}", None) for i in range(3, 12)},
+    },
+    154: {i: (f"param{i}", None) for i in range(1, 12)},  # Angry Dimitri
 }
