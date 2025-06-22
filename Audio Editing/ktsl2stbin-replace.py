@@ -7,6 +7,7 @@ from struct import pack, unpack
 
 # Define hex markers and other constants
 MAGIC = b"KTSR"
+MAGIC2 = b"KTSC"
 KTSL2ASBIN_ID = 0x1A487B77
 INFO2_SECTION_ID = 0x70CBCCC5
 KTSL2STBIN_ID = 0xFCDD9402
@@ -21,7 +22,7 @@ ProjectRate = {
     88200, 96000, 176400, 192000, 352800, 384000
 }
 
-# Read the binary file
+# Read for ktsl2asbin file (recognition)
 def parse_ktsl2asbin(data):
     results = {
         "is_valid_ktsl2asbin": False,
@@ -51,10 +52,79 @@ def parse_ktsl2asbin(data):
 
     return results
 
-# Read info_sections (second)
+# Read for KTSC file (recognition)
+def parse_ktscbin(data):
+    results = {
+        "is_valid_ktsc": False
+    }
+
+    # Check magic and type ID
+    if data[:4] != MAGIC2:
+        return results
+
+    results["is_valid_ktsc"] = True
+
+    return results
+
+def parse_ktsc_sections(data):
+    #if data[:4] != MAGIC2:
+    #    raise ValueError("Invalid KTSC magic header")
+
+    offset = 4  # skip magic word
+    data_len = len(data)
+    ktsc_sections = []
+
+    while offset + 4 <= data_len:
+        flags = unpack("<H", data[offset:offset+2])[0]
+        console_type = unpack("<H", data[offset+2:offset+4])[0]
+        ktsr_count = unpack("<I", data[offset+4:offset+8])[0]
+        ktsr_link_id_table_offset = unpack("<I", data[offset+8:offset+12])[0]
+        ktsr_offset_table_offset = unpack("<I", data[offset+12:offset+16])[0]
+        file_size = unpack("<I", data[offset+16:offset+20])[0]
+        ktsc_end_offset = unpack("<I", data[offset+20:offset+24])[0]
+        padding_1 = unpack("<I", data[offset+24:offset+28])[0]
+        
+        # Dynamically read ktsr_link_ids
+        ktsr_link_ids = [
+            unpack("<I", data[ktsr_link_id_table_offset + i * 4 : ktsr_link_id_table_offset + (i + 1) * 4])[0]
+            for i in range(ktsr_count)
+        ]
+
+        # Dynamically read ktsr_offsets
+        ktsr_offsets = [
+            unpack("<I", data[ktsr_offset_table_offset + i * 4 : ktsr_offset_table_offset + (i + 1) * 4])[0]
+            for i in range(ktsr_count)
+        ]
+        
+        # Read trailing 4-byte value after ktsr_offsets
+        trailing_offset = ktsr_offset_table_offset + ktsr_count * 4
+        if trailing_offset + 4 <= len(data):
+            file_end_offset = unpack("<I", data[trailing_offset:trailing_offset + 4])[0]
+        else:
+            file_end_offset = None
+        
+        ktsc_sections.append({
+            "flags": flags,
+            "console_type": console_type,
+            "ktsr_count": ktsr_count,
+            "ktsr_link_id_table_offset": ktsr_link_id_table_offset,
+            "ktsr_offset_table_offset": ktsr_offset_table_offset,
+            "file_size": file_size,
+            "ktsc_end_offset": ktsc_end_offset,
+            "padding_1": padding_1,
+            "ktsr_link_ids": ktsr_link_ids,
+            "ktsr_offsets": ktsr_offsets,
+            "file_end_offset": file_end_offset
+        })
+        
+        break
+
+    return ktsc_sections
+
+# Read info2_sections
 def parse_info2_sections(data):
-    if data[:4] != MAGIC:
-        raise ValueError("Invalid KTSR magic header")
+    #if data[:4] != MAGIC:
+    #    raise ValueError("Invalid KTSR magic header")
 
     type_id = unpack("<I", data[4:8])[0]
     if type_id != KTSL2ASBIN_ID:
@@ -325,6 +395,65 @@ def parse_ktss_audio(file_path):
 
     return ktss_sections
 
+def patch_info2_entry(data, match, link_id, offset_start, ktss_section_size_new,
+                      new_ktss_channel_count, new_ktss_sample_rate, new_ktss_sample_count,
+                      new_ktss_loop_start, verbose=True):
+    """
+    Patch the INFO2 entry of a ktsl2asbin file (to match new info for the linked ktsl2stbin)
+    """
+    try:
+        # Find exact field offsets dynamically
+        channel_count_field = next(k for k in match if k.startswith("channel_count ("))
+        sample_rate_field   = next(k for k in match if k.startswith("sample_rate ("))
+        sample_count_field  = next(k for k in match if k.startswith("sample_count ("))
+        loop_start_field    = next(k for k in match if k.startswith("loop_start ("))
+        ktss_offset_field   = next(k for k in match if k.startswith("ktss_offset ("))
+        ktss_size_field     = next(k for k in match if k.startswith("ktss_size ("))
+
+        # Convert field strings to integer file offsets
+        channel_count_addr = int(channel_count_field.split("(")[1].split(")")[0])
+        sample_rate_addr   = int(sample_rate_field.split("(")[1].split(")")[0])
+        sample_count_addr  = int(sample_count_field.split("(")[1].split(")")[0])
+        loop_start_addr    = int(loop_start_field.split("(")[1].split(")")[0])
+        ktss_offset_addr   = int(ktss_offset_field.split("(")[1].split(")")[0])
+        ktss_size_addr     = int(ktss_size_field.split("(")[1].split(")")[0])
+
+        # Patch fields
+        data.seek(channel_count_addr)
+        data.write(pack("<I", new_ktss_channel_count))
+
+        data.seek(sample_rate_addr)
+        data.write(pack("<I", new_ktss_sample_rate))
+
+        data.seek(sample_count_addr)
+        data.write(pack("<I", new_ktss_sample_count))
+
+        if new_ktss_loop_start == -1:
+            new_ktss_loop_start = 0xFFFFFFFF
+
+        data.seek(loop_start_addr)
+        data.write(pack("<I", new_ktss_loop_start))
+
+        data.seek(ktss_offset_addr)
+        data.write(pack("<I", offset_start))
+
+        data.seek(ktss_size_addr)
+        data.write(pack("<I", ktss_section_size_new))
+
+        if verbose:
+            print(f"Patched INFO2 entry for link_id {link_id}:")
+            print(f"  -> channel_count = {new_ktss_channel_count} (was {match[channel_count_field]})")
+            print(f"  -> sample_rate   = {new_ktss_sample_rate} (was {match[sample_rate_field]})")
+            print(f"  -> sample_count  = {new_ktss_sample_count} (was {match[sample_count_field]})")
+            print(f"  -> loop_start    = {new_ktss_loop_start} (was {match[loop_start_field]})")
+            print(f"  -> ktss_offset   = {offset_start} (was {match[ktss_offset_field]})")
+            print(f"  -> ktss_size     = {ktss_section_size_new} (was {match[ktss_size_field]})")
+
+        return True
+    except Exception as e:
+        print(f"[ERROR] Failed to patch INFO2 entry for link_id {link_id}: {e}")
+        return False
+
 def update_following_ktss_offsets(info2_sections, replaced_link_id, delta, data):
     """
     Updates all ktss_offset fields in info2_sections after the replaced entry,
@@ -348,15 +477,108 @@ def update_following_ktss_offsets(info2_sections, replaced_link_id, delta, data)
         ktss_offset_field = next(k for k in section if k.startswith("ktss_offset ("))
         ktss_offset_addr = int(ktss_offset_field.split("(")[1].split(")")[0])
         old_offset = section[ktss_offset_field]
-        new_offset = old_offset + delta
+        new_offset = (old_offset + delta) - 16
 
         # In-place patch
         data.seek(ktss_offset_addr)
         data.write(pack("<I", new_offset))
 
-        #print(f"  -> link_id {section[next(k for k in section if k.startswith('link_id ('))]}:")
-        #print(f"     old_offset = {old_offset}, new_offset = {new_offset}")
+        #print(f"[+] Updating link_id {section[next(k for k in section if k.startswith('link_id ('))]}: new_offset = {new_offset}, old_offset = {old_offset}")
 
+def update_following_ktsr_offsets(data, ktsr_map, start_index, updated_ktss_entries):
+    """
+    Adjusts the ktss_offset field (at offset+372) in all KTSR blocks that follow the replaced one.
+    """
+    
+    print(f"[+] Adjusting KTSS offsets starting from index {start_index+1}...")
+
+    for entry in ktsr_map[start_index:]:
+        link_id = entry["link_id"]
+        offset_start = entry["offset"]
+
+        # Match with KTSS entry by link_id
+        ktss_entry = next((e for e in updated_ktss_entries if e["link_id"] == link_id), None)
+        if not ktss_entry:
+            continue
+
+        new_offset = ktss_entry["offset"]
+        #print(f"[+] Updating embedded KTSR for link_id {link_id} to new offset {new_offset}")
+
+        data.seek(offset_start + 372)  # ktss_offset field | 288 -> info2 section start, +84 to reach ktss_offset
+        data.write(pack("<I", new_offset))
+
+def rebuild_ktsr_offsets(data):
+    """
+    This should make it possible to rearrange the KTSR blocks or add new ones later
+    """
+    # Parse KTSC section again to get the offset table base
+    ktsc_sections = parse_ktsc_sections(data)
+    if not ktsc_sections:
+        raise RuntimeError("No KTSC section found; cannot rebuild KTSR offset table")
+
+    section = ktsc_sections[0]
+    offset_table_addr = section["ktsr_offset_table_offset"]
+    offset_table_end = section["ktsc_end_offset"]
+    old_offsets = section["ktsr_offsets"]
+    ktsr_count = len(old_offsets)
+
+    # Find all current KTSR offsets by scanning the binary
+    new_ktsr_offsets = []
+    pos = 0
+    while True:
+        pos = data.find(MAGIC, pos)
+        if pos == -1:
+            break
+        new_ktsr_offsets.append(pos)
+        pos += 4
+
+    new_ktsr_entries = len(new_ktsr_offsets)
+
+    if new_ktsr_entries != ktsr_count:
+        print(f"Warning: expected {ktsr_count} KTSR entries, but found {new_ktsr_entries} in file")
+
+    # Overwrite the offset table at the known table location
+    data.seek(offset_table_addr)
+    for offset in new_ktsr_offsets:
+        data.write(pack("<I", offset))
+
+    # Update KTSR count
+    data.seek(8)
+    data.write(pack("<I", new_ktsr_entries))
+
+    # Determine current full file size
+    data.seek(0, os.SEEK_END)
+    file_l = data.tell()
+
+    # Update file size
+    fs1 = 20
+    fs2 = offset_table_end - 4
+    data.seek(fs1)
+    data.write(pack("<I", file_l))
+    data.seek(fs2)
+    data.write(pack("<I", file_l))
+
+    print(f"Rebuilt KTSR offset table with {new_ktsr_entries} entries at offset {offset_table_addr}-{offset_table_end - 8}")
+    #print(f"Updated KTSR count table with {new_ktsr_entries} entries at offset 8")
+    #print(f"Updated file size at offset {fs1} and {fs2} to: {file_l}")
+
+def adjust_offsets(entry, offset_base):
+    """
+    Adds offset_base to all keys in entry that look like 'field_name (offset)'. (For KTSC)
+    """
+    adjusted = {}
+    for k, v in entry.items():
+        if "(" in k and k.endswith(")"):
+            field, offset_str = k.rsplit("(", 1)
+            try:
+                rel_offset = int(offset_str.rstrip(")"))
+                new_key = f"{field.strip()} ({rel_offset + offset_base})"
+                adjusted[new_key] = v
+            except ValueError:
+                adjusted[k] = v
+        else:
+            adjusted[k] = v
+    return adjusted
 
 # Update file size info
 def update_file_size(filename):
@@ -375,6 +597,7 @@ def update_file_size(filename):
         f.write(data)
 
     #print(f"Updated header file size at offsets 24 and 28 with {final_size} bytes.")
+
 
 # Main
 if __name__ == "__main__":
@@ -404,6 +627,17 @@ if __name__ == "__main__":
             print(f"Error: Your index was larger than the max (last entry): {max_index}")
             exit(1)
 
+        # To change KTSS offsets later for ktsl2asbin (KTSC files)
+        ktss_entries = [
+            {
+                "index": i + 1,
+                "offset": entry["offset"] + HEADER_LENGTH,
+                "link_id": entry["link_id"],
+                "section_size": entry["section_size"],
+            }
+            for i, entry in enumerate(ktss_header)
+        ]
+
         cur_index = ktss_offsets[index-1]
         next_index = 0
         
@@ -418,6 +652,7 @@ if __name__ == "__main__":
         # offset start and end where KTSS audio needs to be removed and the new one inserted...
         # for now, we can calculate offset_start only
         offset_start = cur_index + HEADER_LENGTH
+        ktss_orig_offset = offset_start # for KTSC files
 
         # read original file
         with open(filename, "rb") as f:
@@ -471,11 +706,16 @@ if __name__ == "__main__":
     # update ktsl2asbin
     with open(filename2, "r+b") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_WRITE) as data:
         parsed = parse_ktsl2asbin(data)
-        info2_sections = parse_info2_sections(data)
+        parsed2 = parse_ktscbin(data)
 
-        if parsed["is_valid_ktsl2asbin"]:        
+        # Check and parse based on whether it's a KTSC or a regular ktsl2asbin (non-KTSC) file
+        if data[:4] == MAGIC:
+            info2_sections = parse_info2_sections(data)
+        elif data[:4] == MAGIC2:
+            ktsc_sections = parse_ktsc_sections(data)
+
+        if parsed["is_valid_ktsl2asbin"]:
             # Find match for target_link_id from KTSS section
-            #match = next((sec for sec in info2_sections if sec["link_id"] == link_id), None)
             match = next(
                 (sec for sec in info2_sections
                  if any(k.startswith("link_id (") and sec[k] == link_id for k in sec)),
@@ -484,67 +724,93 @@ if __name__ == "__main__":
 
             if match:
                 print(f"Found matching Link ID in INFO2 at offset: {match['offset']}")
-                #info2_offset = match['offset']
+                success = patch_info2_entry(
+                    data=data,
+                    match=match,
+                    link_id=link_id,
+                    offset_start=offset_start,
+                    ktss_section_size_new=ktss_section_size_new,
+                    new_ktss_channel_count=new_ktss_channel_count,
+                    new_ktss_sample_rate=new_ktss_sample_rate,
+                    new_ktss_sample_count=new_ktss_sample_count,
+                    new_ktss_loop_start=new_ktss_loop_start,
+                    verbose=True
+                )
+                
+                if success:
+                    # now update the ktss_offset values, unless it's the final index
+                    delta = ktss_section_size_new - (section_size - section_headersize - 48)
+                    if delta != 0 and index != max_index:
+                        update_following_ktss_offsets(info2_sections, link_id, delta, data)
 
-                # Find exact field offsets dynamically
-                channel_count_field = next(k for k in match if k.startswith("channel_count ("))
-                sample_rate_field = next(k for k in match if k.startswith("sample_rate ("))
-                sample_count_field = next(k for k in match if k.startswith("sample_count ("))
-                loop_start_field = next(k for k in match if k.startswith("loop_start ("))            
-                ktss_offset_field = next(k for k in match if k.startswith("ktss_offset ("))
-                ktss_size_field = next(k for k in match if k.startswith("ktss_size ("))
-
-                channel_count_addr = int(channel_count_field.split("(")[1].split(")")[0])
-                sample_rate_addr = int(sample_rate_field.split("(")[1].split(")")[0])
-                sample_count_addr = int(sample_count_field.split("(")[1].split(")")[0])
-                loop_start_addr = int(loop_start_field.split("(")[1].split(")")[0])
-                ktss_offset_addr = int(ktss_offset_field.split("(")[1].split(")")[0])
-                ktss_size_addr = int(ktss_size_field.split("(")[1].split(")")[0])
-
-                # Write the new values
-                data.seek(channel_count_addr)
-                data.write(pack("<I", new_ktss_channel_count))
-
-                data.seek(sample_rate_addr)
-                data.write(pack("<I", new_ktss_sample_rate))
-
-                data.seek(sample_count_addr)
-                data.write(pack("<I", new_ktss_sample_count))
-
-                if new_ktss_loop_start == -1:
-                    new_ktss_loop_start = 0xFFFFFFFF
-
-                data.seek(loop_start_addr)
-                data.write(pack("<I", new_ktss_loop_start))
-
-                data.seek(ktss_offset_addr)
-                data.write(pack("<I", offset_start))
-
-                data.seek(ktss_size_addr)
-                data.write(pack("<I", ktss_section_size_new))
-
-                print(f"Patched INFO2 entry:")
-                print(f"  -> channel_count = {new_ktss_channel_count} (from {match[channel_count_field]})")
-                print(f"  -> sample_rate   = {new_ktss_sample_rate} (from {match[sample_rate_field]})")
-                print(f"  -> sample_count  = {new_ktss_sample_count} (from {match[sample_count_field]})")
-                print(f"  -> loop_start    = {new_ktss_loop_start} (from {match[loop_start_field]})")
-                print(f"  -> ktss_offset   = {offset_start} (from {match[ktss_offset_field]})")
-                print(f"  -> ktss_size     = {ktss_section_size_new} (from {match[ktss_size_field]})")
-
-                # now update the ktss_offset values, unless it's the final index
-                delta = ktss_section_size_new - (section_size - section_headersize - 48)
-                if delta != 0 and index != max_index:
-                    update_following_ktss_offsets(info2_sections, link_id, delta, data)
-
-                data.flush()
-                data.close()
-                f.close()
-
-                os.utime(filename2, None) # update timestamp manually
-
-                update_file_size(filename2) # update file size for ktsl2asbin, just in case it changes
+                    data.flush()
+                    data.close()
+                    f.close()
+                    os.utime(filename2, None) # update timestamp manually
+                    update_file_size(filename2) # update file size for ktsl2asbin, just in case it changes
             else:
                 print(f"No matching INFO2 found for link_id {link_id} in: {filename2}")
-        else:
-            print(f"Error: Not a valid ktsl2asbin file: {filename2}")
-            exit(1)
+
+        if parsed2["is_valid_ktsc"]:
+            # Map KTSR Link ID to offset
+            section = ktsc_sections[0]
+            link_ids = section["ktsr_link_ids"]
+            offsets = section["ktsr_offsets"]
+
+            ktsr_map = [
+                {"index": i+1, "link_id": link_id, "offset": offset}
+                for i, (link_id, offset) in enumerate(zip(link_ids, offsets))
+            ]
+
+            ktsr_entry = next((entry for entry in ktsr_map if entry["link_id"] == link_id), None)
+            
+            if ktsr_entry:
+                offset_start = ktsr_entry["offset"]
+                print(f"Found embedded KTSR with link_id {link_id} at offset {offset_start}")
+
+                # jump to KTSR block and treat it like another ktsl2asbin file
+                data.seek(offset_start)
+                
+                # use the offset of the next KTSR to calculate block length
+                current_offset = ktsr_entry["offset"]
+                index = ktsr_entry["index"] - 1
+
+                # determine block end
+                if index + 1 < len(ktsr_map):
+                    next_offset = ktsr_map[index + 1]["offset"]
+                    block_end = next_offset
+                else:
+                    block_end = len(data)  # last block, go to EOF
+
+                block_data = data[current_offset:block_end] # temporary use
+
+                parsed_ktsr_entries = parse_info2_sections(block_data)
+                if parsed_ktsr_entries:
+                    adjusted_entry = adjust_offsets(parsed_ktsr_entries[0], offset_start)
+
+                    success = patch_info2_entry(
+                        data=data,
+                        match=adjusted_entry,
+                        link_id=link_id,
+                        offset_start=ktss_orig_offset,
+                        ktss_section_size_new=ktss_section_size_new,
+                        new_ktss_channel_count=new_ktss_channel_count,
+                        new_ktss_sample_rate=new_ktss_sample_rate,
+                        new_ktss_sample_count=new_ktss_sample_count,
+                        new_ktss_loop_start=new_ktss_loop_start,
+                        verbose=True
+                    )
+
+                    if success:
+                        if index != max_index:
+                             # 1. Adjust all KTSR offsets (prob. not really needed, but may not hurt)
+                            rebuild_ktsr_offsets(data)
+                            # 2. Adjust KTSS offset
+                            update_following_ktsr_offsets(data, ktsr_map, index+1, ktss_entries)
+
+                        data.flush()
+                        data.close()
+                        f.close()
+                        os.utime(filename2, None)
+            else:
+                print(f"No INFO2 match inside KTSR block for link_id {link_id}")

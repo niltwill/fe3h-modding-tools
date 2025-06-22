@@ -128,7 +128,7 @@ if __name__ == "__main__":
         print("\nKTSR Link ID -> Offset Mapping:")
         print("-" * 32)
         for i, (link_id, offset) in enumerate(zip(link_ids, offsets)):
-            print(f"{i:4}: Link ID = {link_id:<10} | Offset = {offset}")
+            print(f"{i+1:4}: Link ID = {link_id:<10} | Offset = {offset}")
 
         #ktsr_map = [
         #    {"index": i, "link_id": link_id, "offset": offset}
