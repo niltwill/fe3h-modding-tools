@@ -598,6 +598,24 @@ def update_file_size(filename):
 
     #print(f"Updated header file size at offsets 24 and 28 with {final_size} bytes.")
 
+def get_updated_ktss_entries(filename):
+    with open(filename, "rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as data:
+        parsed = parse_ktsl2stbin(data)
+        ktss_header = parse_ktss_sections(data)
+
+    if not parsed["is_valid_ktsl2stbin"]:
+        raise RuntimeError(f"Not a valid ktsl2stbin file: {filename}")
+
+    return [
+        {
+            "index": i + 1,
+            "offset": entry["offset"] + HEADER_LENGTH,
+            "link_id": entry["link_id"],
+            "section_size": entry["section_size"],
+        }
+        for i, entry in enumerate(ktss_header)
+    ]
+
 
 # Main
 if __name__ == "__main__":
@@ -613,13 +631,12 @@ if __name__ == "__main__":
     index = int(sys.argv[3])
     filename2 = sys.argv[4]
 
+    # update ktsl2stbin
     with open(filename, "rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as data:
         parsed = parse_ktsl2stbin(data)
         ktss_header = parse_ktss_sections(data)
 
-    #parsed = parse_ktsl2stbin(filename)
     if parsed["is_valid_ktsl2stbin"]:
-
         ktss_offsets = parsed["ktss_sections"]
         max_index = len(ktss_offsets)
 
@@ -627,21 +644,9 @@ if __name__ == "__main__":
             print(f"Error: Your index was larger than the max (last entry): {max_index}")
             exit(1)
 
-        # To change KTSS offsets later for ktsl2asbin (KTSC files)
-        ktss_entries = [
-            {
-                "index": i + 1,
-                "offset": entry["offset"] + HEADER_LENGTH,
-                "link_id": entry["link_id"],
-                "section_size": entry["section_size"],
-            }
-            for i, entry in enumerate(ktss_header)
-        ]
-
         cur_index = ktss_offsets[index-1]
         next_index = 0
-        
-        #ktss_header = parse_ktss_sections(filename)
+
         cur_entry = ktss_header[index-1]
         
         section_size = cur_entry["section_size"]
@@ -806,6 +811,7 @@ if __name__ == "__main__":
                              # 1. Adjust all KTSR offsets (prob. not really needed, but may not hurt)
                             rebuild_ktsr_offsets(data)
                             # 2. Adjust KTSS offset
+                            ktss_entries = get_updated_ktss_entries(filename)
                             update_following_ktsr_offsets(data, ktsr_map, index+1, ktss_entries)
 
                         data.flush()
