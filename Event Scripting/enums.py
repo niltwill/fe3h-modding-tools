@@ -1962,8 +1962,7 @@ event_param_definitions = {
         3: ("animation", enumAnimation),
         4: ("portrait_expression", enumPortraitExpression),
         5: ("voice_line", None),
-        6: ("play_voiceline", enumBool),
-        **{i: (f"param{i}", None) for i in range(7, 12)},
+        **{i: (f"param{i}", None) for i in range(6, 12)},
     },
     4: {  # scene event
         1: ("event_function", enumSceneEvent),
