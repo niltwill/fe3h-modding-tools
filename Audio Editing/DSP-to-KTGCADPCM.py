@@ -1,520 +1,325 @@
-from pathlib import Path
-from struct import unpack, pack
 import sys
+from pathlib import Path
+from struct import unpack, pack, pack_into
 
+# --- Constants ---
+# Magic numbers to identify file and section types.
 FILE_MAGIC = 0x70CBCCC5
 AUDIO_MAGIC = 0xE96FD86A
-HEADER_LENGTH = 32
+# The fixed size of the top-level KTGCADPCM header.
+KTGC_HEADER_LENGTH = 32
+# The fixed size of a single DSP header block.
 DSP_HEADER_LENGTH = 96
 
-# Read header entries
-def parse_dsp_header(file_path):
-    with open(file_path, "rb") as f:
+# ==============================================================================
+# SECTION 1: DSP FILE PARSING
+# Functions for reading the source `.dsp` audio files.
+# ==============================================================================
+
+def read_dsp_header(data, offset):
+    """
+    Reads a single 96-byte DSP header from a data block at a given offset.
+    The format string ">IIIHHIII16H9H" unpacks 78 bytes of structured data.
+    > endianness: Big-endian
+    I: unsigned int (4 bytes)
+    H: unsigned short (2 bytes)
+    """
+    if offset + 78 > len(data):
+        raise ValueError("Not enough data to read a full DSP header.")
+    
+    fields = unpack(">IIIHHIII16H9H", data[offset:offset + 78])
+    header = {
+        "SampleCount": fields[0],
+        "NibbleCount": fields[1],
+        "SampleRate": fields[2],
+        "LoopFlag": fields[3],
+        "AudioFormat": fields[4],
+        "StartAddress": fields[5],
+        "EndAddress": fields[6],
+        "CurrentAddress": fields[7],
+        "Coefficients": list(fields[8:24]), # Store coefficients as a list
+        "Gain": fields[24],
+        "InitialPredictorScale": fields[25],
+        "History1": fields[26],
+        "History2": fields[27],
+        "LoopPredictorScale": fields[28],
+        "LoopHistory1": fields[29],
+        "LoopHistory2": fields[30],
+        "ChannelCount": fields[31],
+        "InterleaveSizeFrames": fields[32],
+    }
+    return header
+
+def parse_dsp_file(dsp_file_path):
+    """
+    Parses a .dsp file, returning all channel headers and the raw audio data blob.
+    It assumes headers are sequential at the start of the file.
+    """
+    with open(dsp_file_path, "rb") as f:
         data = f.read()
 
-    offset = 0
-    data_len = len(data)
-    audiodata_len = (data_len - DSP_HEADER_LENGTH) + 1
-    dsp_sections = []
+    headers = []
+    if not data:
+        raise ValueError(f"DSP file '{dsp_file_path}' is empty.")
 
-    while offset + 4 <= data_len:
-        SampleCount = unpack(">I", data[offset:offset+4])[0]
-        NibbleCount = unpack(">I", data[offset+4:offset+8])[0]
-        SampleRate = unpack(">I", data[offset+8:offset+12])[0]
-        LoopFlag = unpack(">H", data[offset+12:offset+14])[0]
-        AudioFormat = unpack(">H", data[offset+14:offset+16])[0]
-        StartAddress = unpack(">I", data[offset+16:offset+20])[0]
-        EndAddress = unpack(">I", data[offset+20:offset+24])[0]
-        CurrentAddress = unpack(">I", data[offset+24:offset+28])[0]
-        
-        Coefficient1 = unpack(">H", data[offset+28:offset+30])[0]
-        Coefficient2 = unpack(">H", data[offset+30:offset+32])[0]
-        Coefficient3 = unpack(">H", data[offset+32:offset+34])[0]
-        Coefficient4 = unpack(">H", data[offset+34:offset+36])[0]
-        Coefficient5 = unpack(">H", data[offset+36:offset+38])[0]
-        Coefficient6 = unpack(">H", data[offset+38:offset+40])[0]
-        Coefficient7 = unpack(">H", data[offset+40:offset+42])[0]
-        Coefficient8 = unpack(">H", data[offset+42:offset+44])[0]
-        Coefficient9 = unpack(">H", data[offset+44:offset+46])[0]
-        Coefficient10 = unpack(">H", data[offset+46:offset+48])[0]
-        Coefficient11 = unpack(">H", data[offset+48:offset+50])[0]
-        Coefficient12 = unpack(">H", data[offset+50:offset+52])[0]
-        Coefficient13 = unpack(">H", data[offset+52:offset+54])[0]
-        Coefficient14 = unpack(">H", data[offset+54:offset+56])[0]
-        Coefficient15 = unpack(">H", data[offset+56:offset+58])[0]
-        Coefficient16 = unpack(">H", data[offset+58:offset+60])[0]
+    # Read the first header to determine the total number of channels.
+    first_header = read_dsp_header(data, 0)
+    headers.append(first_header)
+    
+    # The ChannelCount field in the first header dictates how many headers to read.
+    # We trust this value to be accurate for the file's structure.
+    channel_count = first_header.get("ChannelCount", 1)
+    if channel_count <= 0:
+        channel_count = 1
 
-        Gain = unpack(">H", data[offset+60:offset+62])[0]
-        InitialPredictorScale = hex(unpack(">H", data[offset+62:offset+64])[0])
-        History1 = unpack(">H", data[offset+64:offset+66])[0]
-        History2 = unpack(">H", data[offset+66:offset+68])[0]
-        LoopPredictorScale = hex(unpack(">H", data[offset+68:offset+70])[0])
-        LoopHistory1 = unpack(">H", data[offset+70:offset+72])[0]
-        LoopHistory2 = unpack(">H", data[offset+72:offset+74])[0]
-        ChannelCount = unpack(">H", data[offset+74:offset+76])[0]
-        InterleaveSizeFrames = unpack(">H", data[offset+76:offset+78])[0]
-        # Here's some padding for 18 bytes, which marks the end of header, but this is not needed to know
+    # Read the remaining headers for a multi-channel file.
+    for i in range(1, channel_count):
+        offset = i * DSP_HEADER_LENGTH
+        if len(data) < offset + DSP_HEADER_LENGTH:
+            print(f"Warning: DSP file expects {channel_count} channels, but is truncated.", file=sys.stderr)
+            break
+        header_n = read_dsp_header(data, offset)
+        headers.append(header_n)
 
-        dsp_sections.append({
-            "AudioData_Length": audiodata_len, # not in actual header data, but useful when changing KTGCADPCM
-            "SampleCount": SampleCount,
-            "NibbleCount": NibbleCount,
-            "SampleRate": SampleRate,
-            "LoopFlag": LoopFlag,
-            "AudioFormat": AudioFormat,
-            "StartAddress": StartAddress,
-            "EndAddress": EndAddress,
-            "CurrentAddress": CurrentAddress,
-            "Coefficient1": Coefficient1,
-            "Coefficient2": Coefficient2,
-            "Coefficient3": Coefficient3,
-            "Coefficient4": Coefficient4,
-            "Coefficient5": Coefficient5,
-            "Coefficient6": Coefficient6,
-            "Coefficient7": Coefficient7,
-            "Coefficient8": Coefficient8,
-            "Coefficient9": Coefficient9,
-            "Coefficient10": Coefficient10,
-            "Coefficient11": Coefficient11,
-            "Coefficient12": Coefficient12,
-            "Coefficient13": Coefficient13,
-            "Coefficient14": Coefficient14,
-            "Coefficient15": Coefficient15,
-            "Coefficient16": Coefficient16,
-            "Gain": Gain,
-            "InitialPredictorScale": InitialPredictorScale,
-            "History1": History1,
-            "History2": History2,
-            "LoopPredictorScale": LoopPredictorScale,
-            "LoopHistory1": LoopHistory1,
-            "LoopHistory2": LoopHistory2,
-            "ChannelCount": ChannelCount,
-            "InterleaveSizeFrames": InterleaveSizeFrames
-        })
+    # The audio data begins immediately after the last header.
+    audio_data_start_offset = len(headers) * DSP_HEADER_LENGTH
+    audio_data_blob = data[audio_data_start_offset:]
 
-        break
+    return headers, audio_data_blob
 
-    return dsp_sections
+# ==============================================================================
+# SECTION 2: KTGCADPCM FILE PARSING
+# Functions for reading the target `.vgmstream`/`.ktgc` file format.
+# These operate on a bytearray for safe, in-memory processing.
+# ==============================================================================
 
-# Read header entries
-def parse_ktgcadpcm_header(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
-
-    offset = 0
-    magic = unpack("<I", data[offset:offset+4])[0]
-
-    # Check magic and type ID
+def parse_ktgcadpcm_header_from_data(data):
+    """
+    Reads the main 32-byte header from a KTGCADPCM file's bytearray.
+    """
+    if len(data) < KTGC_HEADER_LENGTH:
+        raise ValueError("Invalid KTGCADPCM file: too small for header.")
+    
+    magic = unpack("<I", data[0:4])[0]
     if magic != FILE_MAGIC:
-        raise ValueError("Invalid KTGADPCM magic header!")
+        raise ValueError(f"Invalid KTGCADPCM magic. Got {hex(magic)}, expected {hex(FILE_MAGIC)}")
 
-    offset = 4
-    data_len = len(data)
-    
-    header_sections = []
+    (
+        total_filesize, section_headerlink, unk_12, stream_count, pointer_table_offset
+    ) = unpack("<IIIII", data[4:24])
 
-    while offset + 4 <= data_len:
-        total_filesize = unpack("<I", data[offset:offset+4])[0]
-        section_headerlink = unpack("<I", data[offset+4:offset+8])[0]
-        unk_12 = unpack("<I", data[offset+8:offset+12])[0]
-        stream_count = unpack("<I", data[offset+12:offset+16])[0]
-        pointer_table = unpack("<I", data[offset+16:offset+20])[0]
+    return {
+        "total_filesize": total_filesize,
+        "section_headerlink": section_headerlink,
+        "unk_12": unk_12,
+        "stream_count": stream_count,
+        "pointer_table_offset": pointer_table_offset,
+    }
 
-        names1 = unpack("<B", data[offset+20:offset+21])[0] # depending on stream_count, there could be more
-        
-        offset = pointer_table # go to pointer table
-        pointers1 = unpack("<I", data[offset:offset+4])[0] # like before, this would need more entries based on stream_count
+def parse_audio_data_from_data(data):
+    """
 
-        header_sections.append({
-            "total_filesize": total_filesize,
-            "section_headerlink": section_headerlink,
-            "unk_12": unk_12,
-            "stream_count": stream_count,
-            "pointer_table": pointer_table,
-            "names1": names1,
-            "pointers1": pointers1
-        })
-
-        break
-
-    return header_sections
-
-# Read audio data
-def parse_audio_data(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
-
-    offset = HEADER_LENGTH
-    magic = unpack("<I", data[offset:offset+4])[0]
-
-    # Check magic and type ID
+    Reads the audio section header and stream info from a KTGCADPCM file's bytearray.
+    """
+    audio_section_base_offset = KTGC_HEADER_LENGTH
+    if len(data) < audio_section_base_offset + 4:
+         raise ValueError("Invalid KTGCADPCM file: no audio section found.")
+         
+    magic = unpack("<I", data[audio_section_base_offset:audio_section_base_offset+4])[0]
     if magic != AUDIO_MAGIC:
-        raise ValueError("Invalid audio header!")
+        raise ValueError(f"Invalid audio header magic. Got {hex(magic)}, expected {hex(AUDIO_MAGIC)}")
 
-    offset = HEADER_LENGTH + 4
-    data_len = len(data)
-
-    audio_sections = []
-
-    while offset + 4 <= data_len:
-        audio_datasize = unpack("<I", data[offset:offset+4])[0] # Audio Data size (Total File Size - 32)
-        file_linkID = unpack("<I", data[offset+4:offset+8])[0]
-        num_Channels = unpack("<I", data[offset+8:offset+12])[0]
-        unk_48 = unpack("<I", data[offset+12:offset+16])[0]
-        sample_rate = unpack("<I", data[offset+16:offset+20])[0]
-        duration = unpack("<I", data[offset+20:offset+24])[0] # Duration = numOfSamples - (numOfSamples/8)
-        unk_60 = unpack("<I", data[offset+24:offset+28])[0]
-        alwaysFF = hex(unpack("<I", data[offset+28:offset+32])[0])
-        unk_68 = unpack("<I", data[offset+32:offset+36])[0]
-        dsp_info_pointer = unpack("<I", data[offset+36:offset+40])[0]
-        dsp_info_size = unpack("<I", data[offset+40:offset+44])[0]
-        stream_pointer_table_pointer = unpack("<I", data[offset+44:offset+48])[0]
-        stream_size_table_pointer = unpack("<I", data[offset+48:offset+52])[0]
-        
-        offset = HEADER_LENGTH + dsp_info_pointer # from the start, including the magic hex, this DSP section is 96 bytes (each)
-        # for simplicity, only one channel is handled here as in the original
-        dsp_info1_duration = unpack("<I", data[offset:offset+4])[0] # Duration = numOfSamples - (numOfSamples/8)
-        dsp_info1_sampleCount = unpack("<I", data[offset+4:offset+8])[0]
-        dsp_info1_sampleRate = unpack("<I", data[offset+8:offset+12])[0]
-        dsp_info1_unk_16 = unpack("<I", data[offset+12:offset+16])[0]
-        dsp_info1_unk_20 = unpack("<I", data[offset+16:offset+20])[0]
-        dsp_info1_clippedSampleCount = unpack("<I", data[offset+20:offset+24])[0]
-        dsp_info1_unk_28 = unpack("<I", data[offset+24:offset+28])[0]
-
-        dsp_info1_coefficient1 = unpack("<H", data[offset+28:offset+30])[0]
-        dsp_info1_coefficient2 = unpack("<H", data[offset+30:offset+32])[0]
-        dsp_info1_coefficient3 = unpack("<H", data[offset+32:offset+34])[0]
-        dsp_info1_coefficient4 = unpack("<H", data[offset+34:offset+36])[0]
-        dsp_info1_coefficient5 = unpack("<H", data[offset+36:offset+38])[0]
-        dsp_info1_coefficient6 = unpack("<H", data[offset+38:offset+40])[0]
-        dsp_info1_coefficient7 = unpack("<H", data[offset+40:offset+42])[0]
-        dsp_info1_coefficient8 = unpack("<H", data[offset+42:offset+44])[0]
-        dsp_info1_coefficient9 = unpack("<H", data[offset+44:offset+46])[0]
-        dsp_info1_coefficient10 = unpack("<H", data[offset+46:offset+48])[0]
-        dsp_info1_coefficient11 = unpack("<H", data[offset+48:offset+50])[0]
-        dsp_info1_coefficient12 = unpack("<H", data[offset+50:offset+52])[0]
-        dsp_info1_coefficient13 = unpack("<H", data[offset+52:offset+54])[0]
-        dsp_info1_coefficient14 = unpack("<H", data[offset+54:offset+56])[0]
-        dsp_info1_coefficient15 = unpack("<H", data[offset+56:offset+58])[0]
-        dsp_info1_coefficient16 = unpack("<H", data[offset+58:offset+60])[0]
-        
-        # now we have a padding here with 36 bytes, this is not included
-
-        offset = HEADER_LENGTH + stream_pointer_table_pointer
-        stream_pointers1 = unpack("<I", data[offset:offset+4])[0] # only for one channel here
-
-        offset = HEADER_LENGTH + stream_size_table_pointer
-        stream_sizes1 = unpack("<I", data[offset:offset+4])[0] # only for one channel here
-        
-        # this is going to be the Stream_Data (audio stream data, finally!)
-        offset = HEADER_LENGTH + stream_pointers1
-        stream_data1_begin = offset
-        stream_data1_end = offset + (stream_sizes1 - 1)
-
-        audio_sections.append({
-            "audio_datasize": audio_datasize,
-            "file_linkID": file_linkID,
-            "num_Channels": num_Channels,
-            "unk_48": unk_48,
-            "sample_rate": sample_rate,
-            "duration": duration,
-            "unk_60": unk_60,
-            "alwaysFF": alwaysFF,
-            "unk_68": unk_68,
-            "dsp_info_pointer": dsp_info_pointer,
-            "dsp_info_size": dsp_info_size,
-            "stream_pointer_table_pointer": stream_pointer_table_pointer,
-            "stream_size_table_pointer": stream_size_table_pointer,
-            "dsp_info1_duration": dsp_info1_duration,
-            "dsp_info1_sampleCount": dsp_info1_sampleCount,
-            "dsp_info1_sampleRate": dsp_info1_sampleRate,
-            "dsp_info1_unk_16": dsp_info1_unk_16,
-            "dsp_info1_unk_20": dsp_info1_unk_20,
-            "dsp_info1_clippedSampleCount": dsp_info1_clippedSampleCount,
-            "dsp_info1_unk_28": dsp_info1_unk_28,
-            "dsp_info1_coefficient1": dsp_info1_coefficient1,
-            "dsp_info1_coefficient2": dsp_info1_coefficient2,
-            "dsp_info1_coefficient3": dsp_info1_coefficient3,
-            "dsp_info1_coefficient4": dsp_info1_coefficient4,
-            "dsp_info1_coefficient5": dsp_info1_coefficient5,
-            "dsp_info1_coefficient6": dsp_info1_coefficient6,
-            "dsp_info1_coefficient7": dsp_info1_coefficient7,
-            "dsp_info1_coefficient8": dsp_info1_coefficient8,
-            "dsp_info1_coefficient9": dsp_info1_coefficient9,
-            "dsp_info1_coefficient10": dsp_info1_coefficient10,
-            "dsp_info1_coefficient11": dsp_info1_coefficient11,
-            "dsp_info1_coefficient12": dsp_info1_coefficient12,
-            "dsp_info1_coefficient13": dsp_info1_coefficient13,
-            "dsp_info1_coefficient14": dsp_info1_coefficient14,
-            "dsp_info1_coefficient15": dsp_info1_coefficient15,
-            "dsp_info1_coefficient16": dsp_info1_coefficient16,
-            "stream_pointers1": stream_pointers1,
-            "stream_sizes1": stream_sizes1,
-            "stream_data1_begin": stream_data1_begin,
-            "stream_data1_end": stream_data1_end
-        })
-
-        break
-
-    return audio_sections
-
-
-def remove_bytes(binary_file, start, end):
-    with open(binary_file, "r+b") as f:
-        f.seek(end)
-        remaining_bytes = f.read()
-        f.seek(start)
-        f.write(remaining_bytes)
-        f.truncate(start + len(remaining_bytes))
-        return True
-
-
-def insert_bytes(binary_file, start, insert_data):
-    with open(binary_file, "r+b") as f:
-        f.seek(start)
-        tail = f.read()
-        f.seek(start)
-        f.write(insert_data)
-        f.write(tail)
-
-
-def read_data_from_offset(file_path, offset):
-    with open(file_path, "rb") as f:
-        f.seek(offset)
-        return f.read()  # Reads from offset to end
-
-
-def update_audio_metadata(file_path, section, updates):
-    with open(file_path, "r+b") as f:
-        # Update audio_datasize (offset +4 from section start)
-        if "audio_datasize" in updates:
-            f.seek(HEADER_LENGTH + 4)
-            f.write(pack("<I", updates["audio_datasize"]))
-
-        # Update sample_rate (offset +16 in section)
-        if "sample_rate" in updates:
-            f.seek(HEADER_LENGTH + 20)  # HEADER + 4 (magic) + 16
-            f.write(pack("<I", updates["sample_rate"]))
-
-        # Update duration1 (offset +20 in section)
-        if "duration1" in updates:
-            f.seek(HEADER_LENGTH + 24)
-            f.write(pack("<I", updates["duration1"]))
-
-        # Update stream_sizes1
-        if "stream_sizes1" in updates:
-            f.seek(HEADER_LENGTH + section["stream_size_table_pointer"])
-            f.write(pack("<I", updates["stream_sizes1"]))
-
-        # --- DSP Info Section ---
-        dsp_base = HEADER_LENGTH + section["dsp_info_pointer"]
-
-        if "dsp_info1_sampleRate" in updates:
-            f.seek(dsp_base + 8)
-            f.write(pack("<I", updates["dsp_info1_sampleRate"]))
-
-        if "duration2" in updates:
-            f.seek(dsp_base + 0)
-            f.write(pack("<I", updates["duration2"]))
-
-        if "sampleCount" in updates:
-            f.seek(dsp_base + 4)
-            f.write(pack("<I", updates["sampleCount"]))
-
-        if "clippedSampleCount" in updates:
-            f.seek(dsp_base + 20)
-            f.write(pack("<I", updates["clippedSampleCount"]))
-
-        # Coefficients: dsp_info1_coefficient1 to dsp_info1_coefficient16
-        for i in range(16):
-            key = f"coefficient{i+1}"
-            if key in updates:
-                f.seek(dsp_base + 28 + (i * 2))
-                f.write(pack("<H", updates[key]))
-
-
-def update_ktgcadpcm_header(file_path, updates):
-    with open(file_path, "r+b") as f:
-        # Skip magic (first 4 bytes)
-        base_offset = 4
-
-        if "total_filesize" in updates:
-            f.seek(base_offset + 0)
-            f.write(pack("<I", updates["total_filesize"]))
-
-        if "section_headerlink" in updates:
-            f.seek(base_offset + 4)
-            f.write(pack("<I", updates["section_headerlink"]))
-
-        if "unk_12" in updates:
-            f.seek(base_offset + 8)
-            f.write(pack("<I", updates["unk_12"]))
-
-        if "stream_count" in updates:
-            f.seek(base_offset + 12)
-            f.write(pack("<I", updates["stream_count"]))
-
-        if "pointer_table" in updates:
-            f.seek(base_offset + 16)
-            f.write(pack("<I", updates["pointer_table"]))
-
-        if "names1" in updates:
-            f.seek(base_offset + 20)
-            f.write(pack("<B", updates["names1"]))  # 1 byte
-
-        if "pointers1" in updates:
-            # Must read pointer_table offset first
-            f.seek(base_offset + 16)
-            pointer_table = unpack("<I", f.read(4))[0]
-
-            f.seek(pointer_table)
-            f.write(pack("<I", updates["pointers1"]))
-
-
-def get_file_size(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
-    return len(data)
+    header_unpack_offset = audio_section_base_offset + 4
+    (
+        audio_datasize, file_linkID, num_channels, unk_48, sample_rate,
+        duration, unk_60, alwaysFF, unk_68, dsp_info_ptr, dsp_info_size,
+        stream_ptr_tbl_ptr, stream_size_tbl_ptr
+    ) = unpack("<IIIIIIIIIIIII", data[header_unpack_offset : header_unpack_offset+52])
     
-def fix_padding(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
+    # Calculate absolute offsets for easier processing later.
+    dsp_info_abs = audio_section_base_offset + dsp_info_ptr
+    stream_ptr_tbl_abs = audio_section_base_offset + stream_ptr_tbl_ptr
+    stream_size_tbl_abs = audio_section_base_offset + stream_size_tbl_ptr
+    
+    # Get stream pointers and sizes from their tables
+    stream_pointers, stream_sizes = [], []
+    for ch in range(num_channels):
+        ptr_offset = stream_ptr_tbl_abs + (ch * 4)
+        size_offset = stream_size_tbl_abs + (ch * 4)
+        if ptr_offset + 4 > len(data) or size_offset + 4 > len(data): break
+        
+        stream_pointers.append(unpack("<I", data[ptr_offset:ptr_offset+4])[0])
+        stream_sizes.append(unpack("<I", data[size_offset:size_offset+4])[0])
+        
+    # Calculate absolute start/end of each audio stream's data
+    stream_data_locs = []
+    for ch in range(len(stream_pointers)):
+        start_ptr = stream_pointers[ch]
+        size = stream_sizes[ch]
+        start_abs = audio_section_base_offset + start_ptr
+        end_abs = start_abs + size
+        stream_data_locs.append({ "start_abs": start_abs, "end_abs": end_abs, "size": size })
 
-    total_size = len(data)
-    remainder = total_size % 16
+    return {
+        "num_channels": num_channels, "sample_rate": sample_rate,
+        "dsp_info_ptr": dsp_info_ptr, "dsp_info_size": dsp_info_size,
+        "dsp_info_abs": dsp_info_abs,
+        "stream_ptr_tbl_ptr": stream_ptr_tbl_ptr,
+        "stream_ptr_tbl_abs": stream_ptr_tbl_abs,
+        "stream_size_tbl_ptr": stream_size_tbl_ptr,
+        "stream_size_tbl_abs": stream_size_tbl_abs,
+        "stream_data_locs": stream_data_locs,
+    }
 
-    if remainder == 0:
-        padding_needed = 0
-    else:
-        padding_needed = 16 - remainder
+# ==============================================================================
+# SECTION 3: REBUILDING LOGIC
+# This is the core of the script, performing all modifications in memory.
+# ==============================================================================
 
-    padded_data = data + (b"\x00" * padding_needed)
+def rebuild_ktgcadpcm_layout(dsp_file_path, out_file_path):
+    """
+    Rebuilds the audio in a KTGCADPCM file using a new DSP file. This function
+    operates on an in-memory bytearray to prevent file corruption from direct
+    on-disk insertion/deletion operations.
+    """
+    print(f"--- Starting Audio Rebuild ---")
+    print(f"Source DSP: {Path(dsp_file_path).name}")
+    print(f"Target File: {Path(out_file_path).name}")
 
-    with open(file_path, "wb") as f:
-        f.write(padded_data)
-
-# Main
-if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("FE3H - replace DSP audio in KTGCADPCM game files")
-        print("For simplicity reasons, this only handles the structure of original files")
-        print("So only 1 channel, 1 audio stream is supported with this")
-        print("Usage: python DSP-to-KTGCADPCM.py <XXX.dsp> <XXX.vgmstream>")
+    # --- 1. Load files into memory ---
+    dsp_headers, dsp_audio_blob = parse_dsp_file(dsp_file_path)
+    new_channel_count = len(dsp_headers)
+    
+    with open(out_file_path, "rb") as f:
+        ktgc_content = bytearray(f.read())
+        
+    # --- 2. Parse target file structure ---
+    audio_info = parse_audio_data_from_data(ktgc_content)
+    orig_channel_count = audio_info["num_channels"]
+    print(f"Source has {new_channel_count} channel(s). Target has {orig_channel_count} channel(s).")
+    
+    # --- 3. Verify Channel Count ---
+    # The script now exits if the channel counts do not match. This is a safety
+    # measure to prevent corruption when channel expansion logic is not needed.
+    if new_channel_count != orig_channel_count:
+        print("\n--- ERROR: Channel Count Mismatch ---", file=sys.stderr)
+        print(f"Source DSP file has {new_channel_count} channel(s).", file=sys.stderr)
+        print(f"Target file is configured for {orig_channel_count} channel(s).", file=sys.stderr)
+        print("\nAborting to prevent file corruption.", file=sys.stderr)
+        print("Please use a source DSP with a matching number of channels.", file=sys.stderr)
         sys.exit(1)
 
-    dsp_file = sys.argv[1]
-    out_file = sys.argv[2]
+    # --- 4. Prepare and Splice New Audio Data ---
+    # The new audio data replaces the old audio block completely.
+    new_streams_data, new_stream_sizes = [], []
+    cursor = 0
+    for ch_header in dsp_headers:
+        nibble_count = int((ch_header["SampleCount"] * 16 + 13) // 14)
+        #byte_length = (ch_header["NibbleCount"] + 1) // 2 # strangely this doesn't work in every case, so better to calculate it
+        byte_length = (nibble_count + 1) // 2 # Each nibble is 4 bits.
+        ch_data = dsp_audio_blob[cursor : cursor + byte_length]
+        new_streams_data.append(ch_data)
+        new_stream_sizes.append(len(ch_data))
+        cursor += byte_length
+        
+    new_audio_block = b"".join(new_streams_data)
 
-    # 1. Parse DSP header
-    parsed1 = parse_dsp_header(dsp_file)
-    section_dsp = parsed1[0]
+    # Determine the boundaries of the old audio block to replace it.
+    if not audio_info["stream_data_locs"]:
+         raise ValueError("Target file has no audio streams defined to replace.")
+    audio_block_start = audio_info["stream_data_locs"][0]["start_abs"]
+    audio_block_end = audio_info["stream_data_locs"][-1]["end_abs"]
+    
+    ktgc_content = ktgc_content[:audio_block_start] + new_audio_block + ktgc_content[audio_block_end:]
+    
+    # --- 5. Update All Pointers and Metadata ---
+    audio_section_base = KTGC_HEADER_LENGTH
+    
+    # Update stream pointer and size tables with new values.
+    stream_ptr_tbl_abs = audio_info["stream_ptr_tbl_abs"]
+    stream_size_tbl_abs = audio_info["stream_size_tbl_abs"]
+    
+    current_stream_ptr_relative = audio_block_start - audio_section_base
+    for i in range(new_channel_count):
+        pack_into("<I", ktgc_content, stream_ptr_tbl_abs + i * 4, current_stream_ptr_relative)
+        pack_into("<I", ktgc_content, stream_size_tbl_abs + i * 4, new_stream_sizes[i])
+        current_stream_ptr_relative += new_stream_sizes[i]
 
-    new_StreamSize = section_dsp["AudioData_Length"]
-    new_SampleRate = section_dsp["SampleRate"]
-    new_SampleCount = section_dsp["NibbleCount"]
-    new_Duration = round(new_SampleCount - (new_SampleCount / 8)) # this must be rounded to the nearest integer
-    new_clippedSampleCount = new_SampleCount - 1
+    # Update DSP info blocks for each channel using data from the source DSP.
+    dsp_info_abs = audio_info["dsp_info_abs"]
+    for i in range(new_channel_count):
+        ch_header = dsp_headers[i]
+        dsp_block_offset = dsp_info_abs + i * DSP_HEADER_LENGTH
+        
+        # Pack various metadata fields. This structure must match the game's expectations.
+        pack_into("<I", ktgc_content, dsp_block_offset + 0, ch_header["NibbleCount"]) # Duration
+        pack_into("<I", ktgc_content, dsp_block_offset + 4, ch_header["SampleCount"]) # Sample Count
+        pack_into("<I", ktgc_content, dsp_block_offset + 8, ch_header["SampleRate"]) # Sample Rate
+        pack_into("<I", ktgc_content, dsp_block_offset + 20, ch_header["SampleCount"] - 1) # clippedSampleCount
+        
+        # Pack the 16 DSP coefficients (2 bytes each)
+        coeffs_base = dsp_block_offset + 28
+        for j, unsigned_coeff in enumerate(ch_header["Coefficients"]):
+            # *** FIX: Convert unsigned short to signed short ***
+            # The DSP uses unsigned shorts (H) for coefficients, but the
+            # target format expects signed shorts (h). We must convert
+            # values > 32767 to their negative equivalent (two's complement).
+            signed_coeff = unsigned_coeff
+            if unsigned_coeff > 32767:
+                signed_coeff = unsigned_coeff - 65536
+            pack_into("<h", ktgc_content, coeffs_base + j * 2, signed_coeff)
+            
+    # Update shared metadata in the main audio header.
+    pack_into("<I", ktgc_content, audio_section_base + 20, dsp_headers[0]["SampleRate"])
+    pack_into("<I", ktgc_content, audio_section_base + 24, dsp_headers[0]["NibbleCount"])
 
-    new_coef1 = section_dsp["Coefficient1"]
-    new_coef2 = section_dsp["Coefficient2"]
-    new_coef3 = section_dsp["Coefficient3"]
-    new_coef4 = section_dsp["Coefficient4"]
-    new_coef5 = section_dsp["Coefficient5"]
-    new_coef6 = section_dsp["Coefficient6"]
-    new_coef7 = section_dsp["Coefficient7"]
-    new_coef8 = section_dsp["Coefficient8"]
-    new_coef9 = section_dsp["Coefficient9"]
-    new_coef10 = section_dsp["Coefficient10"]
-    new_coef11 = section_dsp["Coefficient11"]
-    new_coef12 = section_dsp["Coefficient12"]
-    new_coef13 = section_dsp["Coefficient13"]
-    new_coef14 = section_dsp["Coefficient14"]
-    new_coef15 = section_dsp["Coefficient15"]
-    new_coef16 = section_dsp["Coefficient16"]
+    # --- 6. Finalize Header and Apply Padding ---
+    # Update datasize and filesize fields.
+    new_audio_datasize = len(ktgc_content) - KTGC_HEADER_LENGTH
+    pack_into("<I", ktgc_content, audio_section_base + 4, new_audio_datasize)
+    pack_into("<I", ktgc_content, 4, len(ktgc_content)) # Total filesize
 
-    # Parse header sections
-    parsed2 = parse_ktgcadpcm_header(out_file)
-    section_out1 = parsed2[0]
+    # The file size must be a multiple of 16. Pad with null bytes if needed.
+    padding_needed = (16 - (len(ktgc_content) % 16)) % 16
+    if padding_needed > 0:
+        ktgc_content.extend(b'\x00' * padding_needed)
+        # Update final filesize again to include padding.
+        pack_into("<I", ktgc_content, 4, len(ktgc_content))
+    
+    # --- 7. Write Result to File ---
+    with open(out_file_path, "wb") as f:
+        f.write(ktgc_content)
 
-    total_filesize = section_out1["total_filesize"]
+    print(f"\nSuccessfully rebuilt '{Path(out_file_path).name}' with {new_channel_count} channel(s).")
+    print(f"Final file size: {len(ktgc_content)} bytes.")
+    print(f"--- Rebuild Complete ---")
 
-    # Parse audio sections
-    parsed3 = parse_audio_data(out_file)
-    section_out2 = parsed3[0]
+# ==============================================================================
+# SECTION 4: MAIN EXECUTION
+# ==============================================================================
 
-    audio_datasize = section_out2["audio_datasize"]
-    sample_rate = section_out2["sample_rate"]
-    dsp_info1_sampleRate = section_out2["dsp_info1_sampleRate"]
-    duration1 = section_out2["duration"]
-    duration2 = section_out2["dsp_info1_duration"]
-    sampleCount = section_out2["dsp_info1_sampleCount"]
-    clippedSampleCount = section_out2["dsp_info1_clippedSampleCount"]
-    coefficient1 = section_out2["dsp_info1_coefficient1"]
-    coefficient2 = section_out2["dsp_info1_coefficient2"]
-    coefficient3 = section_out2["dsp_info1_coefficient3"]
-    coefficient4 = section_out2["dsp_info1_coefficient4"]
-    coefficient5 = section_out2["dsp_info1_coefficient5"]
-    coefficient6 = section_out2["dsp_info1_coefficient6"]
-    coefficient7 = section_out2["dsp_info1_coefficient7"]
-    coefficient8 = section_out2["dsp_info1_coefficient8"]
-    coefficient9 = section_out2["dsp_info1_coefficient9"]
-    coefficient10 = section_out2["dsp_info1_coefficient10"]
-    coefficient11 = section_out2["dsp_info1_coefficient11"]
-    coefficient12 = section_out2["dsp_info1_coefficient12"]
-    coefficient13 = section_out2["dsp_info1_coefficient13"]
-    coefficient14 = section_out2["dsp_info1_coefficient14"]
-    coefficient15 = section_out2["dsp_info1_coefficient15"]
-    coefficient16 = section_out2["dsp_info1_coefficient16"]
-    stream_sizes1 = section_out2["stream_sizes1"]
-    stream_data1_begin = section_out2["stream_data1_begin"]
-    stream_data1_end = section_out2["stream_data1_end"]
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print("FE3H - replace DSP audio in KTGCADPCM game files")
+        print("Replaces the audio in a KTGCADPCM file with audio from a DSP file.")
+        print(f"Usage: python {Path(__file__).name} <source_file.dsp> <target_file.vgmstream>")
+        sys.exit(1)
 
-    # 1. Remove old audio stream
-    remove_bytes(out_file, stream_data1_begin, stream_data1_end)
+    source_dsp = sys.argv[1]
+    target_ktgc = sys.argv[2]
+    
+    if not Path(source_dsp).exists():
+        print(f"Error: Source file not found at '{source_dsp}'", file=sys.stderr)
+        sys.exit(1)
+        
+    if not Path(target_ktgc).exists():
+        print(f"Error: Target file not found at '{target_ktgc}'", file=sys.stderr)
+        sys.exit(1)
 
-    # 2. Insert new audio stream
-    new_audio = read_data_from_offset(dsp_file, DSP_HEADER_LENGTH)
-    insert_bytes(out_file, stream_data1_begin, new_audio)
-
-    # 3. Change most values as needed
-    updates = {
-        "sample_rate": new_SampleRate,
-        "dsp_info1_sampleRate": new_SampleRate,
-        "duration1": new_Duration,
-        "duration2": new_Duration,
-        "sampleCount": new_SampleCount,
-        "clippedSampleCount": new_clippedSampleCount,
-        "coefficient1": new_coef1,
-        "coefficient2": new_coef2,
-        "coefficient3": new_coef3,
-        "coefficient4": new_coef4,
-        "coefficient5": new_coef5,
-        "coefficient6": new_coef6,
-        "coefficient7": new_coef7,
-        "coefficient8": new_coef8,
-        "coefficient9": new_coef9,
-        "coefficient10": new_coef10,
-        "coefficient11": new_coef11,
-        "coefficient12": new_coef12,
-        "coefficient13": new_coef13,
-        "coefficient14": new_coef14,
-        "coefficient15": new_coef15,
-        "coefficient16": new_coef16,
-        "stream_sizes1": new_StreamSize,
-    }
-    update_audio_metadata(out_file, section_out2, updates)
-
-    # 4. Calculate the new filesize and update two entries
-    new_totalFileSize = get_file_size(out_file)
-    new_audioDataSize = new_totalFileSize - 32
-
-    header_updates = { "total_filesize": new_totalFileSize }
-    update_ktgcadpcm_header(out_file, header_updates)
-
-    updates = {"audio_datasize": new_audioDataSize}
-    update_audio_metadata(out_file, section_out2, updates)
-
-    # Add some padding as needed
-    fix_padding(out_file)
-
-    print(f"Modified the KTGCADPCM file: '{out_file}' with the DSP file: '{dsp_file}'")
+    try:
+        rebuild_ktgcadpcm_layout(source_dsp, target_ktgc)
+    except (ValueError, FileNotFoundError, IndexError, TypeError, NameError) as e:
+        print(f"\nFATAL ERROR: An unexpected problem occurred during the process.", file=sys.stderr)
+        print(f"Details: {e}", file=sys.stderr)
+        print("Please ensure the files are valid and not corrupt.", file=sys.stderr)
+        sys.exit(1)
