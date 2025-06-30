@@ -1,9 +1,11 @@
 from pathlib import Path
 from struct import unpack, pack
+import glob
 import sys
 
 FILE_MAGIC = 0x70CBCCC5
 AUDIO_MAGIC = 0xE96FD86A
+AUDIO_MAGIC2 = 0x27052510
 HEADER_LENGTH = 32
 
 # Read audio data with multi-channel support
@@ -13,7 +15,7 @@ def parse_audio_data(file_path):
 
     offset = HEADER_LENGTH
     magic = unpack("<I", data[offset:offset+4])[0]
-    if magic != AUDIO_MAGIC:
+    if magic != AUDIO_MAGIC and magic != AUDIO_MAGIC2:
         raise ValueError("Invalid audio header!")
 
     base_offset = HEADER_LENGTH
@@ -155,58 +157,56 @@ if __name__ == "__main__":
         print("Multi-channel is supported, but multiple streams aren't yet")
         print("For user generated DSP files, also add this letter as the third argument: 'c'")
         print("")
-        print("Usage: python KTGCADPCM-to-DSP.py <XXX.vgmstream> [c]")
+        print("Usage: python KTGCADPCM-to-DSP.py <file or pattern.vgmstream> [c]")
         sys.exit(1)
 
-    filename = sys.argv[1]
+    # Wildcard pattern or single file
+    pattern = sys.argv[1]
+    custom = 1 if len(sys.argv) >= 3 and sys.argv[2].lower() == "c" else 0
 
-    # Set default custom flag
-    custom = 0
+    matched_files = sorted(glob.glob(pattern))
+    if not matched_files:
+        print(f"No files matched pattern: {pattern}")
+        sys.exit(1)
 
-    # Check if optional third argument is provided
-    if len(sys.argv) >= 3 and sys.argv[2].lower() == "c":
-        custom = 1
+    for filename in matched_files:
+        print(f"Processing: {filename}")
+        try:
+            parsed = parse_audio_data(filename)
 
-    # Get audio data
-    parsed = parse_audio_data(filename)
+            for idx in range(parsed["num_channels"]):
+                dsp_info = parsed["dsp_infos"][idx]
+                stream = parsed["stream_data"][idx]
 
-    # Save each channel in a different file
-    for idx in range(parsed["num_channels"]):
-        # Extract DSP info and stream data for this channel
-        dsp_info = parsed["dsp_infos"][idx]
-        stream = parsed["stream_data"][idx]
+                nibble_count = dsp_info["duration"]
+                sample_count = dsp_info["sampleCount"]
+                sample_rate = dsp_info["sampleRate"]
+                coefficients = dsp_info["coefficients"]
+                end_address = nibble_count - 1
 
-        # Extract parameters
-        nibble_count = dsp_info["duration"]
-        sample_count = dsp_info["sampleCount"]
-        #nibble_count = int((sample_count * 16 + 13) // 14)
-        sample_rate = dsp_info["sampleRate"]
-        coefficients = dsp_info["coefficients"]
-        end_address = nibble_count - 1
+                dsp_header = construct_dsp_header(
+                    sample_count,
+                    nibble_count,
+                    sample_rate,
+                    end_address,
+                    coefficients,
+                    idx + 1,
+                    custom
+                )
 
-        # Construct the DSP header
-        dsp_header = construct_dsp_header(
-            sample_count,
-            nibble_count,
-            sample_rate,
-            end_address,
-            coefficients,
-            idx + 1,
-            custom
-        )
+                with open(filename, "rb") as f:
+                    f.seek(stream["start"])
+                    stream_data = f.read(stream["size"])
 
-        # Read stream data
-        with open(filename, "rb") as f:
-            f.seek(stream["start"])
-            stream_data = f.read(stream["size"])
+                if idx + 1 == 1:
+                    out_path = Path(filename).parent / f"{Path(filename).stem}.dsp"
+                else:
+                    out_path = Path(filename).parent / f"{Path(filename).stem}{idx + 1}.dsp"
 
-        # Write to output file
-        if idx + 1 == 1:
-            out_path = Path(filename).parent / f"{Path(filename).stem}.dsp"
-        else:
-            out_path = Path(filename).parent / f"{Path(filename).stem}{idx + 1}.dsp"
-        with open(out_path, "wb") as out:
-            out.write(dsp_header)
-            out.write(stream_data)
+                with open(out_path, "wb") as out:
+                    out.write(dsp_header)
+                    out.write(stream_data)
 
-        print(f"Wrote channel {idx + 1} to DSP file: '{out_path}'")
+                print(f"Wrote channel {idx + 1} to DSP file: '{out_path}'")
+        except Exception as e:
+            print(f"Error processing '{filename}': {e}")

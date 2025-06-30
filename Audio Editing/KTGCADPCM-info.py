@@ -4,6 +4,7 @@ import sys
 
 FILE_MAGIC = 0x70CBCCC5
 AUDIO_MAGIC = 0xE96FD86A
+AUDIO_MAGIC2 = 0x27052510
 HEADER_LENGTH = 32
 
 # Returns (string, new_offset). Tries to decode until null-byte, else fallback.
@@ -71,7 +72,7 @@ def parse_audio_data(file_path):
 
     offset = HEADER_LENGTH
     magic = unpack("<I", data[offset:offset+4])[0]
-    if magic != AUDIO_MAGIC:
+    if magic != AUDIO_MAGIC and magic != AUDIO_MAGIC2:
         raise ValueError("Invalid audio header!")
 
     base_offset = HEADER_LENGTH

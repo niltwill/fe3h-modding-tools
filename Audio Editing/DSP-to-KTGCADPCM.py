@@ -6,6 +6,7 @@ from struct import unpack, pack, pack_into
 # Magic numbers to identify file and section types.
 FILE_MAGIC = 0x70CBCCC5
 AUDIO_MAGIC = 0xE96FD86A
+AUDIO_MAGIC2 = 0x27052510
 # The fixed size of the top-level KTGCADPCM header.
 KTGC_HEADER_LENGTH = 32
 # The fixed size of a single DSP header block.
@@ -126,8 +127,8 @@ def parse_audio_data_from_data(data):
          raise ValueError("Invalid KTGCADPCM file: no audio section found.")
          
     magic = unpack("<I", data[audio_section_base_offset:audio_section_base_offset+4])[0]
-    if magic != AUDIO_MAGIC:
-        raise ValueError(f"Invalid audio header magic. Got {hex(magic)}, expected {hex(AUDIO_MAGIC)}")
+    if magic != AUDIO_MAGIC and magic != AUDIO_MAGIC2:
+        raise ValueError(f"Invalid audio header magic. Got {hex(magic)}, expected {hex(AUDIO_MAGIC)} or {hex(AUDIO_MAGIC2)}")
 
     header_unpack_offset = audio_section_base_offset + 4
     (

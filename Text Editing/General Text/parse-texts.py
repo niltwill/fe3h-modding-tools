@@ -1,6 +1,7 @@
-import struct
+import glob
 import json
 import os
+import struct
 import sys
 
 def parse_texts_bin(file_path):
@@ -89,8 +90,26 @@ def export_to_json(lines, input_file):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("FE3H - Convert text binary files to JSON")
-        print("Usage: python parse-texts.py <XXXX.bin>")
-        print("Example file: /nx/event/talk_event/text/ENG_E/11356.bin")
-    else:
-        lines = parse_texts_bin(sys.argv[1])
-        export_to_json(lines, sys.argv[1])
+        print("Usage (single): python parse-texts.py <file.bin>")
+        print("Usage (batch):  python parse-texts.py <folder_or_pattern/*.bin>")
+        sys.exit(1)
+
+    input_patterns = sys.argv[1:]
+    matched_files = []
+
+    for pattern in input_patterns:
+        matched = glob.glob(pattern)
+        if not matched:
+            print(f"No files matched: {pattern}")
+        matched_files.extend(matched)
+
+    if not matched_files:
+        print("No valid input files found.")
+        sys.exit(1)
+
+    for file_path in matched_files:
+        try:
+            lines = parse_texts_bin(file_path)
+            export_to_json(lines, file_path)
+        except Exception as e:
+            print(f"Failed to process {file_path}: {e}")

@@ -1,93 +1,111 @@
-import struct
+import glob
 import json
+import os
+import struct
 import sys
 
-def rebuild_texts_bin(json_path, original_bin_path, output_path):
-    # Load edited strings
+def align16(x):
+    return (x + 15) & ~15
+
+def rebuild_format_a(lines, output_path):
+    count = len(lines)
+
+    # Encode text and generate pointers
+    text_section = b''
+    text_pointers = []
+    offset = 0
+    for line in lines:
+        encoded = line.encode('utf-8') + b'\x00'
+        text_pointers.append(offset)
+        text_section += encoded
+        offset += len(encoded)
+    text_pointers.append(offset)  # Add final pointer
+
+    # Build pointer table
+    pointer_table = struct.pack(f'<{count + 1}I', *text_pointers)
+    pointer_section_size = align16(len(pointer_table))
+    padding_needed = pointer_section_size - len(pointer_table)
+    if padding_needed != 0:
+        pointer_table += b'\xDD' * padding_needed
+
+    # Build header: 1, 1, 32, pointer_section_size, count, + 12 bytes of 'EE'
+    header = struct.pack('<IIIII', 1, 1, 32, pointer_section_size, count)
+    header += b'\xEE' * 12  # 12 bytes
+
+    with open(output_path, 'wb') as f:
+        f.write(header)
+        f.write(pointer_table)
+        f.write(text_section)
+
+    print(f"Rebuilt Format A successfully: {output_path}")
+
+def rebuild_format_b(lines, output_path):
+    count = len(lines)
+
+    offset = 0
+    offset_length_pairs = []
+    data_section = b''
+
+    for entry in lines:
+        if isinstance(entry, dict):
+            text = entry['text']
+            nulls = entry.get('nulls', 1)
+        else:
+            text = entry
+            nulls = 0  # fallback
+
+        encoded = text.encode('utf-8')
+        offset_length_pairs.append((offset + 4 + count * 8, len(encoded) - 1))  # adjusted offset
+        data_section += encoded + (b'\x00' * nulls)
+        offset += len(encoded) + nulls
+
+    with open(output_path, 'wb') as f:
+        f.write(struct.pack('<I', count))
+        for offset_val, length in offset_length_pairs:
+            f.write(struct.pack('<II', offset_val, length))
+        f.write(data_section)
+
+    print(f"Rebuilt Format B successfully: {output_path}")
+
+def process_file(fmt, json_path, output_path):
     with open(json_path, 'r', encoding='utf-8') as f:
         lines = json.load(f)
 
-    with open(original_bin_path, 'rb') as f:
-        header = f.read(32)
-        header_data = struct.unpack('<IIIIIIII', header)
-        val1, val2 = header_data[0], header_data[1]
-
-    if val1 == 1 and val2 == 1:
-        # === Format A ===
-        text_pointer_length = header_data[3]
-        count = header_data[4]
-
-        if len(lines) != count:
-            raise ValueError(f"Line count mismatch: expected {count}, got {len(lines)}")
-
-        with open(original_bin_path, 'rb') as f:
-            f.seek(32)
-            pointers_data = f.read((count + 1) * 4)
-            padding_length = text_pointer_length - ((count + 1) * 4)
-
-        text_section = b''
-        text_pointers = []
-        offset = 0
-        for line in lines:
-            encoded = line.encode('utf-8') + b'\x00'
-            text_pointers.append(offset)
-            text_section += encoded
-            offset += len(encoded)
-        text_pointers.append(offset)
-
-        with open(output_path, 'wb') as f:
-            f.write(header)
-            f.write(struct.pack(f'<{count + 1}I', *text_pointers))
-
-            if padding_length > 0:
-                with open(original_bin_path, 'rb') as orig:
-                    orig.seek(32 + (count + 1) * 4)
-                    dd_padding = orig.read(padding_length)
-                    f.write(dd_padding)
-
-            f.write(text_section)
-
-        print(f"Rebuilt successfully: {output_path}")
-
+    if fmt == 'A':
+        rebuild_format_a(lines, output_path)
+    elif fmt == 'B':
+        rebuild_format_b(lines, output_path)
     else:
-        # === Format B ===
-        count = val1
-        if len(lines) != count:
-            raise ValueError(f"Line count mismatch: expected {count}, got {len(lines)}")
-
-        offset = 0
-        offset_length_pairs = []
-        data_section = b''
-
-        for entry in lines:
-            if isinstance(entry, dict):
-                text = entry['text']
-                nulls = entry.get('nulls', 1)
-            else:
-                text = entry
-                nulls = 0  # fallback
-
-            encoded = text.encode('utf-8')
-            offset_length_pairs.append((offset, len(encoded)-1))  # length without trailing nulls
-            data_section += encoded + (b'\x00' * nulls)
-            offset += len(encoded) + nulls
-
-        with open(output_path, 'wb') as f:
-            f.write(struct.pack('<I', count))  # val1 = count
-            for offset, length in offset_length_pairs:
-                f.write(struct.pack('<II', offset + 0x04 + count * 8, length))  # adjust offset to point after table
-            f.write(data_section)
-
-        print(f"Rebuilt successfully: {output_path}")
+        print(f"Invalid format for file {json_path}. Skipped.")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("FE3H - Convert JSON text files back to binary (need to specify original binary too)")
-        print("Usage: python rebuild-texts.py <edited.json> <original.bin> <output.bin>")
+    if len(sys.argv) < 3:
+        print("FE3H - Convert JSON text files back to binary")
+        print("Usage (single): python rebuild-texts.py <A|B> <input.json> <output.bin>")
+        print("Usage (batch):  python rebuild-texts.py <A|B> <folder_or_wildcard/*.json>")
+        print()
+        print("Format A: narration\\text, talk_castle\\text, talk_event\\text")
+        print("Format B: talk_scinario\\text")
         sys.exit(1)
 
-    json_path = sys.argv[1]
-    original_bin_path = sys.argv[2]
-    output_path = sys.argv[3]
+    fmt = sys.argv[1].upper()
+    input_patterns = sys.argv[2:]
+    expanded_files = []
 
-    rebuild_texts_bin(json_path, original_bin_path, output_path)
+    for pattern in input_patterns:
+        expanded = glob.glob(pattern)
+        if not expanded:
+            print(f"No matching files for pattern: {pattern}")
+        expanded_files.extend(expanded)
+
+    if not expanded_files:
+        print("No valid JSON input files found.")
+        sys.exit(1)
+
+    for json_path in expanded_files:
+        if len(sys.argv) == 4 and len(expanded_files) == 1:
+            output_path = sys.argv[3]
+        else:
+            base_name = os.path.splitext(os.path.basename(json_path))[0]
+            output_path = os.path.join(os.path.dirname(json_path), base_name + ".bin")
+        process_file(fmt, json_path, output_path)
