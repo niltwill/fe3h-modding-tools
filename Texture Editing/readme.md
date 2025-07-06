@@ -9,7 +9,7 @@ Patches, DLCs may either overwrite some of these files or add new ones, so that'
 
 ## Alternative tool
 
-Besides the scripts here, you can simply use [G1Tool](https://github.com/three-houses-research-team/G1Tool) to manage all the G1T files as well. However, that GUI app, while easy to use, gets extremely cumbersome the moment you want to either batch extract ot batch replace a lot of files at once. It's very useful for inspection (check if file is valid, mipmap info, how the images look/what's inside, etc.) and for one-on-one replacements, but for doing numerous texture replacements, it gets tedious and time-consuming fast.
+Besides the scripts here, you can simply use [G1Tool](https://github.com/three-houses-research-team/G1Tool) to manage all the G1T files as well. However, that GUI app, while easy to use, gets extremely cumbersome the moment you want to batch replace a lot of files at once. It's very useful for inspection (check if file is valid, mipmap info, how the images look/what's inside quickly, etc.) and for one-on-one replacements, but for doing numerous texture replacements, it gets tedious and time-consuming fast.
 
 Be aware that the PNGs extracted with this *G1Tool* app do not have straight alpha, so it's best if you use a little correction on them after extraction (if the image has an alpha channel), such as this one for a file (otherwise you'll have transparency issues when converting back to DDS):
 
