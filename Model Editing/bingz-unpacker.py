@@ -6,12 +6,6 @@ def unpack_sections(input_file_path, output_dir):
     """
     Unpacks sections from a binary file based on the provided structure.
 
-    This script reads a binary file where the first 4 bytes indicate the number
-    of sections. It then reads a series of headers, each containing a pointer
-    to and the size of a section. It inspects the first 8 bytes of each
-    section's data to determine the file type (.g1m or .g1t) and saves it
-    with the correct extension.
-
     Args:
         input_file_path (str): The path to the binary file to unpack.
         output_dir (str): The directory where the unpacked sections will be saved.
@@ -21,6 +15,8 @@ def unpack_sections(input_file_path, output_dir):
     G1T_MAGIC = b'\x47\x54\x31\x47' # GT1G
     G2A_MAGIC = b'\x5F\x41\x32\x47' # _A2G
     G1A_MAGIC = b'\x5F\x41\x31\x47' # _A1G
+    RIGB_MAGIC = b'\x42\x47\x49\x52' # BGIR
+    QGWS_MAGIC = b'\x53\x57\x47\x51' # SWGQ
 
     try:
         # Create the output directory if it doesn't exist
@@ -79,6 +75,12 @@ def unpack_sections(input_file_path, output_dir):
                     elif section_data.startswith(G1T_MAGIC):
                         extension = '.g1t'
                         print("  -> Found G1T magic number.")
+                    elif section_data.startswith(RIGB_MAGIC):
+                        extension = '.rigb'
+                        print("  -> Found RIGB magic number.")
+                    elif section_data.startswith(QGWS_MAGIC):
+                        extension = '.qgws'
+                        print("  -> Found QGWS magic number.")
                     elif G2A_MAGIC in header:
                         extension = '.g2a'
                         print("  -> Found G2A magic number.")
@@ -119,4 +121,4 @@ if __name__ == '__main__':
         unpack_sections(input_file, output_folder)
     else:
         print("Usage: python bingz-unpacker.py <input_file> [output_directory]")
-        print("For model files: 3120-4012 (nx\action\model)")
+        print("For model files: 3120-4012 (nx\\action\\model)")

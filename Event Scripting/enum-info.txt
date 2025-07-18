@@ -166,6 +166,43 @@ These are the most common event types (with the most occurrences) which are not 
 
 ---
 
+# Portrait Expressions
+
+Besides the usual 6 expressions, some chars have additional ones (though probably not in the integer slot mentioned, e.g. Sothis's sleepy 6 is actually at 7)
+If you see a character with portrait expression higher than 5, check this list.
+
+* Pre-Timeskip:
+
+Dimitri_NoEyePatch (same, no change): 6 = 1, 7 = 2, 8 = 3, 9 = 4, 10 = 5
+Linhardt: 6 - Tired
+Bernadetta: 6 - Shocked_2
+Dorothea: 6 - Winking
+Petra: 6 - Glasses_On
+Dedue: 6 - Angry_2
+Ignatz: 6 - Without_Glasses
+Marianne: 6 - Neutral_2, 7 - Happy_2, 8 - Happy_3_FurrowedBrows
+Manuela: 6 - Disappointed
+Rhea: 6-10 - Not_Ornate_Face (same portrait between 6-10)
+Sothis: 6 - Sleepy
+Emperor_Ionius_IX: 6 - Serious
+Fleche: 6 - Dismayed
+Lambert: 6 - Shocked_2
+Maiden (646): 6 - Dismayed
+
+* Post-Timeskip:
+
+Dimitri (eyepatch): 6 - Neutral_ShadowCast_Brow, 7 - Happy_ShadowCast_Brow, 8 - Neutral_ShadowCast2_Brow, 9 - Neutral_ShadowCast3_Brow, 10 - Shocked_ShadowCast_Brow
+Linhardt: 6 - Tired
+Bernadetta: 6 - Shocked_2
+Dorothea: 6 - Winking
+Petra: 6 - Glasses_On
+Dedue: 6 - Annoyed
+Ignatz: 6 - Without_Glasses
+Marianne: 6 - Neutral_SlightLipShadow, 7 - Happy_SlightNoseLineFade, 8 - Happy_FurrowedBrows
+Rhea (681): Worn_Face (for 6-10)
+
+---
+
 # Extra Info
 
 Animation (11): Used when the character isn't speaking.

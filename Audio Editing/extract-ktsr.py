@@ -30,7 +30,8 @@ def extract_ktsr(file_path, output_dir="output_ktsr"):
         end = positions[i + 1]
         chunk = data[start:end]
 
-        output_filename = os.path.join(output_dir, f"{i+1}.ktsl2asbin")
+        #output_filename = os.path.join(output_dir, f"{i+1}.ktsl2asbin")
+        output_filename = os.path.join(output_dir, f"{i}.ktsl2asbin")
         with open(output_filename, 'wb') as out_file:
             out_file.write(chunk)
         print(f"Extracted: {output_filename}")
@@ -38,7 +39,8 @@ def extract_ktsr(file_path, output_dir="output_ktsr"):
     # Handle the last chunk (from the last "KTSR" to the end of the file)
     if positions:
         last_chunk = data[positions[-1]:]
-        output_filename = os.path.join(output_dir, f"{len(positions)}.ktsl2asbin")
+        #output_filename = os.path.join(output_dir, f"{len(positions)}.ktsl2asbin")
+        output_filename = os.path.join(output_dir, f"{len(positions) - 1}.ktsl2asbin")
         with open(output_filename, 'wb') as out_file:
             out_file.write(last_chunk)
         print(f"Extracted: {output_filename}")

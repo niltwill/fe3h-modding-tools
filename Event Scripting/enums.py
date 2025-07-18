@@ -341,64 +341,6 @@ enumPortraitExpression = {
     5: "Blushing_5"
 }
 
-# These are character-specific, need testing for each
-characterPortraitOverrides = {
-    #"Dimitri": { # with eyepatch
-    #    6: "Neutral_ShadowCast_Brow_6",
-    #    7: "Happy_ShadowCast_Brow_7",
-    #    8: "Neutral_ShadowCast2_Brow_8",
-    #    9: "Neutral_ShadowCast3_Brow_9",
-    #    10: "Shocked_ShadowCast_Brow_10",
-    #},
-    #"Linhardt": {6: "Tired_6"},
-    #"Bernadetta": {6: "Shocked_2_6"},
-    #"Dorothea": {6: "Winking_6"},
-    #"Petra": {6: "Glasses_On_6"},
-    #"Dedue": {6: "Angry_2_6"},
-    #"Ignatz": {6: "Without_Glasses_6"},
-    #"Marianne": {
-    #    6: "Neutral_2_6",
-    #    7: "Happy_2_6",
-    #    8: "Happy_3_FurrowedBrows_6"
-    #},
-    #"Manuela": {6: "Disappointed_6"},
-    #"Rhea1": {6: "Not_Ornate_Face_6"},
-    #"Rhea2": {
-    #    6: "Not_Ornate_Face_6",
-    #    7: "Not_Ornate_Face_7",
-    #    8: "Not_Ornate_Face_8",
-    #    9: "Not_Ornate_Face_9",
-    #    10: "Not_Ornate_Face_10"
-    #},
-    "Sothis": {7: "Sleepy_7"},
-    #"Emperor_Ionius_IX": {6: "Serious_6"},
-    #"Fleche": {6: "Dismayed_6"},
-    #"Lambert": {6: "Shocked_2_6"},
-    #"Maiden": {6: "Dismayed_6"}
-}
-
-char_id_name_map = {
-    #3: "Dimitri",
-    #7: "Linhardt",
-    #9: "Bernadetta",
-    #10: "Dorothea",
-    #11: "Petra",
-    #12: "Dedue",
-    #21: "Ignatz",
-    #23: "Marianne",
-    #29: "Manuela",
-    #36: "Rhea1",
-    37: "Sothis",
-    #72: "Emperor_Ionius_IX",
-    #74: "Fleche",
-    #75: "Lambert",
-    #646: "Maiden",
-    #644: "Dimitri",
-    679: "Sothis",
-    #681: "Rhea2",
-    1005: "Sothis"
-}
-
 enumSceneEvent = { # Might be relative to cube map pos
     0: "New_Scene",
     1: "New_Character_Walk_In_From_Right",

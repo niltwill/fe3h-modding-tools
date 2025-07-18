@@ -2,7 +2,6 @@
 # Based on 010 Editor binary templates
 
 import os
-import re
 import struct
 import sys
 
@@ -22,6 +21,9 @@ def get_enum_value(enum_dict, label):
     except ValueError:
         raise ValueError(f"Label '{label}' not found in enum.")
 
+#def get_param_info(event_type, param_index):
+#    return enums.event_param_definitions.get(event_type, {}).get(param_index, (f"param{param_index}", None))
+
 def get_param_info(event_type, param_index, param_values=None):
     # Exception for event_type 35
     if event_type == 35 and param_index == 2 and param_values:
@@ -31,20 +33,10 @@ def get_param_info(event_type, param_index, param_values=None):
 
     return enums.event_param_definitions.get(event_type, {}).get(param_index, (f"param{param_index}", None))
 
-def format_param_value(value, enum_cls, param_index=None, full_params=None, event_type=None):
-    # Special case: character-specific portrait expressions (only for Dialogue Box events)
-    if event_type == 3 and param_index == 4 and full_params:
-        char_id = full_params[0]  # param1 = character
-        char_name = enums.char_id_name_map.get(char_id)
-        if char_name:
-            override = enums.characterPortraitOverrides.get(char_name)
-            if override and value in override:
-                return override[value]
-        return enums.enumPortraitExpression.get(value, f"{value}")
-
+def format_param_value(value, enum_cls):
     if enum_cls is None:
         return str(value)
-    if isinstance(enum_cls, dict):
+    if isinstance(enum_cls, dict):  # Handle dicts as enum maps
         return enum_cls.get(value, f"{value}")
     try:
         return enum_cls(value).name
@@ -70,8 +62,9 @@ def parse_text_events(input_file):
 
             formatted_params = []
             for index, value in enumerate(raw_params, 1):
+                #param_name, param_enum = get_param_info(event_type, index)
                 param_name, param_enum = get_param_info(event_type, index, raw_params)
-                value_str = format_param_value(value, param_enum, index, raw_params, event_type)
+                value_str = format_param_value(value, param_enum)
                 formatted_params.append(f"{param_name}={value_str}")
 
             if formatted_params:
@@ -119,15 +112,7 @@ def write_text_events(txt_path, bin_path):
 
                     val = kv_dict.get(field_name, "4294967295")
 
-                    if i == 4 and event_type == 3:
-                        char_id_val = values[1]  # param1 is always at index 1 (character ID)
-                        char_name = enums.char_id_name_map.get(char_id_val)
-                        if char_name and char_name in enums.characterPortraitOverrides:
-                            override_dict = enums.characterPortraitOverrides[char_name]
-                            val_int = get_enum_value(override_dict, val)
-                        else:
-                            val_int = get_enum_value(enums.enumPortraitExpression, val)
-                    elif enum_dict:
+                    if enum_dict:
                         val_int = get_enum_value(enum_dict, val)
                     else:
                         try:

@@ -1,5 +1,6 @@
 from pathlib import Path
 from struct import unpack
+from struct import pack, pack_into
 import sys
 
 # Define hex markers and other constants
@@ -97,6 +98,7 @@ def parse_info_sections(file_path):
 
             info_sections.append({
                 "offset": offset,
+                "section_id": section_id,
                 "section_size": section_size,
                 "link_id": link_id,
                 "channel_count": channel_count,
@@ -111,9 +113,9 @@ def parse_info_sections(file_path):
         elif section_id == PADDING_ID:
             break
         else:
-            offset += 4
+            section_size = unpack("<I", data[offset+4:offset+8])[0]
+            offset += section_size
 
-    print(info_sections)
     return info_sections
 
 
@@ -172,6 +174,7 @@ def parse_info2_sections(file_path):
 
                 info2_sections.append({
                     "offset": offset,
+                    "section_id": section_id,
                     "section_size": section_size,
                     "link_id": link_id,
                     "unk1": unk1,
@@ -208,126 +211,135 @@ def parse_info2_sections(file_path):
                 ktss_offset = unpack("<I", data[offset+84:offset+88])[0]
                 ktss_size = unpack("<I", data[offset+88:offset+92])[0]
                 unk10 = unpack("<I", data[offset+92:offset+96])[0]
-                
-                if offset + 100 <= len(data):
-                    unk11 = unpack("<I", data[offset+96:offset+100])[0]
-                    if unk11 != INFO2_SECTION_ID:
-                        unk12 = unpack("<I", data[offset+104:offset+108])[0]
-                        encrypted_size = unpack("<I", data[offset+112:offset+116])[0]
-                        encrypted_start_offset = offset+120
-                        encrypted_length = encrypted_size * 8
-                    else:
-                        unk11 = 0
-                else:
-                    unk11 = 0
 
                 # Change loop_start to invalid (unset) if it's "FF FF FF FF" in hex
                 if loop_start == 4294967295:
                     loop_start = -1
 
-                if unk11 == 0:
-                    info2_sections.append({
-                        "offset": offset,
-                        "section_size": section_size,
-                        "link_id": link_id,
-                        "unk1": unk1,
-                        "unk2": unk2,
-                        "unk3": unk3,
-                        "header_size": header_size,
-                        "type_id2": type_id2,
-                        "section_size2": section_size2,
-                        "unk4": unk4,
-                        "channel_count": channel_count,
-                        "transition_related": transition_related,
-                        "unk5": unk5,
-                        "sample_rate": sample_rate,
-                        "sample_count": sample_count,
-                        "unk6": unk6,
-                        "loop_start": loop_start,
-                        "unk7": unk7,
-                        "unk8": unk8,
-                        "unk9": unk9,
-                        "ktss_offset": ktss_offset,
-                        "ktss_size": ktss_size,
-                        "unk10": unk10,
-                    })
-                else:
-                    info2_sections.append({
-                        "offset": offset,
-                        "section_size": section_size,
-                        "link_id": link_id,
-                        "unk1": unk1,
-                        "unk2": unk2,
-                        "unk3": unk3,
-                        "header_size": header_size,
-                        "type_id2": type_id2,
-                        "section_size2": section_size2,
-                        "unk4": unk4,
-                        "channel_count": channel_count,
-                        "transition_related": transition_related,
-                        "unk5": unk5,
-                        "sample_rate": sample_rate,
-                        "sample_count": sample_count,
-                        "unk6": unk6,
-                        "loop_start": loop_start,
-                        "unk7": unk7,
-                        "unk8": unk8,
-                        "unk9": unk9,
-                        "ktss_offset": ktss_offset,
-                        "ktss_size": ktss_size,
-                        "unk10": unk10,
-                        "encrypted_unk11": hex(unk11),
-                        "encrypted_unk12": hex(unk12),
-                        "encrypted_segments": encrypted_size,
-                        "encrypted_start_offset": hex(encrypted_start_offset),
-                        "encrypted_part_length": encrypted_length,
-                    })
+                info2_sections.append({
+                    "offset": offset,
+                    "section_id": section_id,
+                    "section_size": section_size,
+                    "link_id": link_id,
+                    "unk1": unk1,
+                    "unk2": unk2,
+                    "unk3": unk3,
+                    "header_size": header_size,
+                    "type_id2": type_id2,
+                    "section_size2": section_size2,
+                    "unk4": unk4,
+                    "channel_count": channel_count,
+                    "transition_related": transition_related,
+                    "unk5": unk5,
+                    "sample_rate": sample_rate,
+                    "sample_count": sample_count,
+                    "unk6": unk6,
+                    "loop_start": loop_start,
+                    "unk7": unk7,
+                    "unk8": unk8,
+                    "unk9": unk9,
+                    "ktss_offset": ktss_offset,
+                    "ktss_size": ktss_size,
+                    "unk10": unk10,
+                })
 
             offset += section_size
         else:
-            offset += 4
+            section_size = unpack("<I", data[offset+4:offset+8])[0]
+            offset += section_size
 
-    print(info2_sections)
     return info2_sections
+
+
+def insert_bytes_at_offset(file_path, insert_offset, new_data):
+    with open(file_path, "rb") as f:
+        original = f.read()
+
+    updated = original[:insert_offset] + new_data + original[insert_offset:]
+
+    with open(file_path, "wb") as f:
+        f.write(updated)
+
+    return len(new_data)  # return size of inserted data
+
+def copy_info_sections_by_link_id(file_path, link_id):
+    info_sections = parse_info_sections(file_path)
+    info2_sections = parse_info2_sections(file_path)
+
+    info_entry = next((info for info in info_sections if info["link_id"] == link_id), None)
+    info2_entry = next((info for info in info2_sections if info["link_id"] == link_id), None)
+
+    if not info_entry or not info2_entry:
+        print(f"Could not find INFO and/or INFO2 section with link_id {link_id}")
+        return
+
+    with open(file_path, "rb") as f:
+        original_data = f.read()
+
+    info_bytes = original_data[info_entry["offset"] : info_entry["offset"] + info_entry["section_size"]]
+    info2_bytes = original_data[info2_entry["offset"] : info2_entry["offset"] + info2_entry["section_size"]]
+
+    info_section = info_entry["section_size"]
+    info2_section = info2_entry["section_size"]
+
+    # Find the last INFO section
+    last_info = max(info_sections, key=lambda x: x["offset"])
+    info_insert_offset = last_info["offset"] + last_info["section_size"]
+    
+    # Find the last INFO2 section
+    last_info2 = max(info2_sections, key=lambda x: x["offset"])
+    info2_insert_offset = last_info2["offset"] + last_info2["section_size"]
+
+    if info_insert_offset < info2_insert_offset:
+        # INFO comes before INFO2, so insert INFO2 first to avoid shifting
+
+        # 1. Insert INFO2 (original, unmodified bytes)
+        insert_bytes_at_offset(file_path, info2_insert_offset, info2_bytes)
+
+        # 2. Insert INFO (original, unmodified bytes)
+        insert_bytes_at_offset(file_path, info_insert_offset, info_bytes)
+
+        print(f"INFO and INFO2 sections for link_id {link_id} duplicated and inserted.")
+        print(f"New INFO offset:  {info_insert_offset}")
+        print(f"New INFO2 offset: {info2_insert_offset}")
+
+    else:
+        # INFO2 comes before INFO, so insert INFO first
+
+        # 1. Insert INFO (original, unmodified bytes)
+        info_size = insert_bytes_at_offset(file_path, info_insert_offset, info_bytes)
+
+        # 2. Insert INFO2 (offset needs adjustment because INFO was inserted before it)
+        # The insertion point for INFO2 is shifted by the size of the INFO section.
+        adjusted_info2_offset = info2_insert_offset + info_size
+        insert_bytes_at_offset(file_path, adjusted_info2_offset, info2_bytes)
+
+        print(f"INFO and INFO2 sections for link_id {link_id} duplicated and inserted.")
+        print(f"New INFO offset:  {info_insert_offset}")
+        print(f"New INFO2 offset: {adjusted_info2_offset}")
+
+    # Update file size fields
+    with open(file_path, "rb") as f:
+        data = bytearray(f.read())
+
+    final_size = len(data)
+    size_bytes = pack("<I", final_size)
+
+    data[24:28] = size_bytes
+    data[28:32] = size_bytes
+    print(f"Updated header file size at offsets 24 and 28 with {final_size} bytes.")
+
+    with open(file_path, "wb") as f:
+        f.write(data)
 
 
 # Main
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("FE3H - Display verbose information about ktsl2asbin files")
-        print("(This is used as basis for editing/understanding its structure)")
-        print("Usage: python ktsl2asbin-info.py XXXX.ktsl2asbin")
+    if len(sys.argv) != 3:
+        print("Usage: python copy_ktsl2asbin_chunk.py <file.ktsl2asbin> <link_id>")
         sys.exit(1)
 
     filename = sys.argv[1]
-    parsed = parse_ktsl2asbin(filename)
+    link_id = int(sys.argv[2], 0)  # allows hex or decimal
 
-    print("Is valid ktsl2asbin:", parsed["is_valid_ktsl2asbin"])
-    if parsed["is_valid_ktsl2asbin"]:
-        print("Info Sections at offsets:", parsed["info_sections"])
-        print("Padding Section at offset:", parsed["padding_offsets"])
-        print("Info2 Sections at offsets:", parsed["info2_sections"])
-
-        print("")
-        print("Info section 1.")
-        parsed2 = parse_info_sections(filename)
-
-        print("")
-        print("Info section 2. (linked to ktsl2stbin)")
-        parsed3 = parse_info2_sections(filename)
-
-        print("")
-        print("Linking info2_sections to info_sections via link_id:")
-
-        # Create a lookup dictionary for info_section offsets by link_id
-        info_link_map = {info["link_id"]: info["offset"] for info in parsed2}
-
-        # Iterate over each info2_section and try to find the matching info_section
-        for info2 in parsed3:
-            link_id = info2["link_id"]
-            info_offset = info_link_map.get(link_id, None)
-
-            if info_offset is not None:
-                print(f"Info2 @ offset {info2['offset']:08X} links to Info @ offset {info_offset:08X} (link_id = {link_id})")
-            #else:
-            #    print(f"Info2 @ offset {info2['offset']:08X} has unmatched link_id = {link_id}")
+    copy_info_sections_by_link_id(filename, link_id)

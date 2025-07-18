@@ -10,13 +10,9 @@ So all of these files can be modded now:
 * 6166.bin
 * 6167.bin
 
-Note: 6159 and 6162-6165 should be used from `patch4` for the latest version.
+Note: 6159 and 6162-6165 should be used from `patch4` for the latest version. Most of these are probably better not to be edited without knowing more about the game internals.
 
-These two may be worth a look, perhaps it has to do with stages or battles, ID linking to scenes or something? (This is only a very vague guess.)
- * 6164 - IN_CubeStageBaseInfo.bin
- * 6165 - IN_CubeStageChangeInfo.bin
-
-Other than those, the main point of interest here is `IN_EventBaseInfo.bin`, so use `mod-IN_EventBaseInfo.py` to mod the file. I'm not really sure how you could add a new support with a new (custom) cutscene though. There's a data file related to handle supports: `fixed_persondata.bin`, which is where one can define additional support. Then the actual support event (and all the other existing events as well) are defined in `IN_EventBaseInfo.bin`.
+The main point of interest here is `IN_EventBaseInfo.bin`, so use `mod-IN_EventBaseInfo.py` to mod the file. I'm not really sure how you could add a new support with a new (custom) cutscene though. There's a data file related to handle supports: `fixed_persondata.bin`, which is where one can define additional support. Then the actual support event (and all the other existing events as well) are defined in `IN_EventBaseInfo.bin`.
 
 As a point of interest, what we can infer is that the entries seem to increment along the same way as the "talk_event" script IDs, for example:
 
