@@ -118,6 +118,58 @@ def read_g1t_metadata(g1t_path):
         "textures": metadata
     }
 
+def detect_dds_format(dds_data):
+    """
+    Detects DDS format including uncompressed formats like R8G8B8A8_UNORM
+    Returns (format_name, fourcc_or_none, is_compressed)
+    """
+    if dds_data[:4] != b'DDS ':
+        raise ValueError("Invalid DDS magic header")
+    
+    # Read pixel format flags at offset 80
+    pf_flags = struct.unpack_from('<I', dds_data, 80)[0]
+    
+    # Check if it's a compressed format (FOURCC flag set)
+    if pf_flags & 0x4:  # DDPF_FOURCC
+        fourcc = dds_data[84:88]
+        try:
+            fourcc_str = fourcc.decode("ascii")
+            return fourcc_str, fourcc_str, True
+        except UnicodeDecodeError:
+            # Some compressed formats might not be ASCII
+            return "UNKNOWN_COMPRESSED", None, True
+    
+    # Check for uncompressed formats
+    if pf_flags & 0x40:  # DDPF_RGB
+        # Get bit count
+        rgb_bit_count = struct.unpack_from('<I', dds_data, 88)[0]
+        
+        # Get bit masks
+        r_mask = struct.unpack_from('<I', dds_data, 92)[0]
+        g_mask = struct.unpack_from('<I', dds_data, 96)[0]
+        b_mask = struct.unpack_from('<I', dds_data, 100)[0]
+        a_mask = struct.unpack_from('<I', dds_data, 104)[0] if pf_flags & 0x1 else 0  # DDPF_ALPHAPIXELS
+        
+        # Identify common uncompressed formats
+        if rgb_bit_count == 32:
+            if r_mask == 0x000000FF and g_mask == 0x0000FF00 and b_mask == 0x00FF0000 and a_mask == 0xFF000000:
+                return "R8G8B8A8_UNORM", None, False
+            elif r_mask == 0x00FF0000 and g_mask == 0x0000FF00 and b_mask == 0x000000FF and a_mask == 0xFF000000:
+                return "B8G8R8A8_UNORM", None, False
+            elif r_mask == 0x000000FF and g_mask == 0x0000FF00 and b_mask == 0x00FF0000 and a_mask == 0:
+                return "R8G8B8X8_UNORM", None, False
+        elif rgb_bit_count == 24:
+            if r_mask == 0x000000FF and g_mask == 0x0000FF00 and b_mask == 0x00FF0000:
+                return "R8G8B8_UNORM", None, False
+        elif rgb_bit_count == 16:
+            if r_mask == 0xF800 and g_mask == 0x07E0 and b_mask == 0x001F:
+                return "R5G6B5_UNORM", None, False
+            elif r_mask == 0x7C00 and g_mask == 0x03E0 and b_mask == 0x001F and a_mask == 0x8000:
+                return "A1R5G5B5_UNORM", None, False
+    
+    # Default to unknown format
+    return "UNKNOWN_UNCOMPRESSED", None, False
+
 def validate_dds(path, expected_fourcc):
     with open(path, 'rb') as f:
         dds = f.read()
@@ -125,24 +177,45 @@ def validate_dds(path, expected_fourcc):
     if dds[:4] != b'DDS ':
         raise ValueError("Invalid DDS magic header")
 
-    # Read and decode FOURCC
-    fourcc = dds[84:88].decode("ascii")
+    # Detect the actual format
+    detected_format, detected_fourcc, is_compressed = detect_dds_format(dds)
+    
+    # Validate against expected format if provided
     if expected_fourcc:
         if isinstance(expected_fourcc, bytes):
             expected_fourcc = expected_fourcc.decode("ascii")
-        if fourcc != expected_fourcc:
-            #raise ValueError(f"Expected {expected_fourcc}, got {fourcc}")
-            print(f"Warning! Original was {expected_fourcc}, got {fourcc}")
+        
+        if is_compressed and detected_fourcc != expected_fourcc:
+            print(f"Warning! Expected {expected_fourcc}, got {detected_fourcc}")
+        elif not is_compressed and expected_fourcc is not None:
+            print(f"Warning! Expected compressed format {expected_fourcc}, got uncompressed {detected_format}")
 
     height = struct.unpack_from('<I', dds, 12)[0]
     width = struct.unpack_from('<I', dds, 16)[0]
 
-    if fourcc == 'DXT1':
-        expected_size = width * height // 2
-    elif fourcc == 'DXT5':
-        expected_size = width * height
+    # Calculate expected size based on format
+    if is_compressed:
+        if detected_fourcc in ['DXT1', 'BC1']:
+            expected_size = max(1, (width + 3) // 4) * max(1, (height + 3) // 4) * 8
+        elif detected_fourcc in ['DXT3', 'DXT5', 'BC2', 'BC3']:
+            expected_size = max(1, (width + 3) // 4) * max(1, (height + 3) // 4) * 16
+        elif detected_fourcc in ['BC4', 'ATI1']:
+            expected_size = max(1, (width + 3) // 4) * max(1, (height + 3) // 4) * 8
+        elif detected_fourcc in ['BC5', 'ATI2']:
+            expected_size = max(1, (width + 3) // 4) * max(1, (height + 3) // 4) * 16
+        else:
+            # Default for unknown compressed formats
+            expected_size = width * height
     else:
-        expected_size = width * height * 4
+        # Uncompressed formats
+        if detected_format in ['R8G8B8A8_UNORM', 'B8G8R8A8_UNORM', 'R8G8B8X8_UNORM']:
+            expected_size = width * height * 4
+        elif detected_format == 'R8G8B8_UNORM':
+            expected_size = width * height * 3
+        elif detected_format in ['R5G6B5_UNORM', 'A1R5G5B5_UNORM']:
+            expected_size = width * height * 2
+        else:
+            expected_size = width * height * 4  # Default to 32-bit
 
     # Should be 128, but first byte seems to be doubled, so we skip that one
     pixel_data = dds[128:128 + expected_size]  # Ensure no extra padding is pulled in
@@ -154,16 +227,45 @@ def validate_dds(path, expected_fourcc):
 
 def get_dds_metadata(dds_path):
     with open(dds_path, "rb") as f:
-        if f.read(4) != b'DDS ':
-            raise ValueError("Invalid DDS file")
-        f.seek(12)
-        height = struct.unpack('<I', f.read(4))[0]
-        width = struct.unpack('<I', f.read(4))[0]
-        f.seek(84)
-        fourcc = f.read(4).decode("ascii")
-        f.seek(28)
-        mipmaps = struct.unpack('<I', f.read(4))[0] or 1
-    return width, height, mipmaps, fourcc
+        dds_data = f.read()
+        
+    if dds_data[:4] != b'DDS ':
+        raise ValueError("Invalid DDS file")
+    
+    height = struct.unpack_from('<I', dds_data, 12)[0]
+    width = struct.unpack_from('<I', dds_data, 16)[0]
+    mipmaps = struct.unpack_from('<I', dds_data, 28)[0] or 1
+    
+    # Use our improved format detection
+    detected_format, detected_fourcc, is_compressed = detect_dds_format(dds_data)
+    
+    return width, height, mipmaps, detected_format, is_compressed
+
+def find_g1t_type_for_dds_format(dds_format, is_compressed):
+    """
+    Maps DDS format to G1T type ID
+    """
+    # Direct FOURCC mappings for compressed formats
+    if is_compressed:
+        for g1t_type, info in g1t.G1T_TYPE_MAP.items():
+            if info.get("fourcc") is not None:
+                try:
+                    fourcc_str = info["fourcc"].decode("ascii")
+                    if fourcc_str == dds_format:
+                        return g1t_type
+                except UnicodeDecodeError:
+                    continue
+    
+    # Uncompressed format mappings
+    format_mappings = {
+        "R8G8B8A8_UNORM": 0x00,  # RGBA8
+        "B8G8R8A8_UNORM": 0x01,  # BGRA8
+        "R8G8B8X8_UNORM": 0x00,  # Treat as RGBA8
+        "R5G6B5_UNORM": 0x34,    # BGR565
+        "A1R5G5B5_UNORM": 0x35,  # ABGR1555
+    }
+    
+    return format_mappings.get(dds_format)
 
 def rebuild_g1t(original_path, dds_folder, output_path):
     """Recreates G1T from modified DDS files by repacking them.
@@ -217,14 +319,12 @@ def rebuild_g1t(original_path, dds_folder, output_path):
             except ValueError as e:
                 raise RuntimeError(f"[Texture {idx:04d}] DDS validation failed for '{dds_path}': {e}")
 
-            new_width, new_height, new_mipmaps, new_fourcc = get_dds_metadata(dds_path)
-            new_tex_type = next(
-                (k for k, v in g1t.G1T_TYPE_MAP.items()
-                 if v.get("fourcc") is not None and v["fourcc"].decode("ascii") == new_fourcc),
-                None
-            )
+            new_width, new_height, new_mipmaps, new_format, is_compressed = get_dds_metadata(dds_path)
+            
+            # Find the appropriate G1T type for this DDS format
+            new_tex_type = find_g1t_type_for_dds_format(new_format, is_compressed)
             if new_tex_type is None:
-                raise ValueError(f"Unknown G1T type for DDS FOURCC: {new_fourcc}")
+                raise ValueError(f"Unsupported DDS format for G1T: {new_format}")
 
             # Store the current position for this texture's relative offset.
             relative_offset_for_table = out.tell() - final_abs_offset_table_start
@@ -233,7 +333,6 @@ def rebuild_g1t(original_path, dds_folder, output_path):
             # Read and modify original header
             with open(original_path, 'rb') as f_orig_tex:
                 f_orig_tex.seek(entry["offset"])
-                #tex_header = bytearray(f_orig_tex.read(entry["header_size"] - 4))
                 tex_header = bytearray(f_orig_tex.read(entry["header_size"] - 4))
 
             # Set mipmap count in upper nibble of byte 0
