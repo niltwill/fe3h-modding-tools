@@ -36,11 +36,26 @@ def batch_rebuild_and_pack(input_dir, output_bin, compress_lvl=0):
     print(f"[INFO] All G1Ts rebuilt. Repacking into: {output_bin}")
 
     # Use external kt_arc.py to compress and package
-    subprocess.run([
-        "python", "kt_arc.py",
-        temp_dir,
-        output_bin
-    ], check=True)
+    script_name = "kt_arc.py"
+    script_path = shutil.which(script_name)
+
+    if script_path is not None:
+        # kt_arc.py found in PATH, use it
+        subprocess.run([
+            "python", script_path,
+            temp_dir,
+            output_bin
+        ], check=True)
+    else:
+        # kt_arc.py not found in PATH, try running it from the current directory
+        if os.path.exists(script_name):
+            subprocess.run([
+                "python", script_name,
+                temp_dir,
+                output_bin
+            ], check=True)
+        else:
+            raise FileNotFoundError(f"Could not find {script_name} in PATH or current directory.")
 
     print("[INFO] Cleaning up temporary files...")
     shutil.rmtree(temp_dir)
