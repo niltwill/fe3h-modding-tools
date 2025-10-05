@@ -454,7 +454,7 @@ def patch_info2_entry(data, match, link_id, offset_start, ktss_section_size_new,
         print(f"[ERROR] Failed to patch INFO2 entry for link_id {link_id}: {e}")
         return False
 
-def update_following_ktss_offsets(info2_sections, replaced_link_id, delta, data):
+def update_following_ktss_offsets(info2_sections, replaced_link_id, delta, data, filename):
     """
     Updates all ktss_offset fields in info2_sections after the replaced entry,
     based on the delta size shift caused by KTSS replacement.
@@ -472,18 +472,38 @@ def update_following_ktss_offsets(info2_sections, replaced_link_id, delta, data)
 
     print(f"[+] Adjusting KTSS offsets starting from index {replaced_index + 1} (link_id = {replaced_link_id})...")
 
+    # Get the actual KTSS section starts from the ktsl2stbin file
+    with open(filename, "rb") as f:
+        stbin_data = f.read()
+
+    parsed_stbin = parse_ktsl2stbin(stbin_data)
+    ktss_sections = parse_ktss_sections(stbin_data)
+
+    # Create a mapping of link_id to actual KTSS offset
+    link_id_to_actual_offset = {}
+    for section in ktss_sections:
+        link_id_to_actual_offset[section["link_id"]] = section["offset"] + HEADER_LENGTH
+
     for section in sorted_sections[replaced_index + 1:]:
+        current_link_id = section[next(k for k in section if k.startswith("link_id ("))]
+
         # Extract offset address of the ktss_offset field
         ktss_offset_field = next(k for k in section if k.startswith("ktss_offset ("))
         ktss_offset_addr = int(ktss_offset_field.split("(")[1].split(")")[0])
         old_offset = section[ktss_offset_field]
-        new_offset = (old_offset + delta) - 16
+
+        # Use the actual offset from the ktsl2stbin file if available
+        if current_link_id in link_id_to_actual_offset:
+            new_offset = link_id_to_actual_offset[current_link_id]
+        else:
+            # Fallback: calculate based on delta
+            new_offset = old_offset + delta
 
         # In-place patch
         data.seek(ktss_offset_addr)
         data.write(pack("<I", new_offset))
 
-        #print(f"[+] Updating link_id {section[next(k for k in section if k.startswith('link_id ('))]}: new_offset = {new_offset}, old_offset = {old_offset}")
+        print(f"[+] Updating link_id {current_link_id}: new_offset = {new_offset}, old_offset = {old_offset}")
 
 def update_following_ktsr_offsets(data, ktsr_map, start_index, updated_ktss_entries):
     """
@@ -645,34 +665,38 @@ if __name__ == "__main__":
             exit(1)
 
         cur_index = ktss_offsets[index-1]
-        next_index = 0
-
         cur_entry = ktss_header[index-1]
-        
+
         section_size = cur_entry["section_size"]
-        link_id = cur_entry["link_id"] # for use in ktsl2asbin later
+        link_id = cur_entry["link_id"]
         kns_size = cur_entry["kns_size"]
-        section_headersize = cur_entry["section_headersize"] # for use in ktsl2asbin later
+        section_headersize = cur_entry["section_headersize"]
 
-        # offset start and end where KTSS audio needs to be removed and the new one inserted...
-        # for now, we can calculate offset_start only
-        offset_start = cur_index + HEADER_LENGTH
-        ktss_orig_offset = offset_start # for KTSC files
+        # Calculate the actual data range to replace
+        #offset_start = cur_index + HEADER_LENGTH
 
-        # read original file
+        # Always use the full section size for the end offset
+        #offset_end = offset_start + section_size
+        
+        # Calculate section boundaries
+        section_start = cur_index  # Start of section (section_id)
+        section_header_end = section_start + HEADER_LENGTH  # End of section header (after KTSS header)
+        section_end = section_start + section_size # End of entire section
+
+        # Read original file
         with open(filename, "rb") as f:
-            original_data = bytearray(f.read())  # use bytearray so we can modify it in place
+            original_data = bytearray(f.read())
 
-        # read the new audio binary data
+        # Read the new audio binary data
         with open(new_audio, "rb") as f:
             new_audio_data = f.read()
 
         new_ktss = parse_ktss_audio(new_audio)
         new_ktss_length = len(new_audio_data)
-        
-        # KTSS should only have one sole entry in a file, this should be fine
+
+        # KTSS should only have one sole entry in a file
         ktss_section_size_new = new_ktss[0]["section_size"]
-        
+
         # These ones are for the ktsl2asbin file
         new_ktss_channel_count = new_ktss[0]["channel_count"]
         new_ktss_sample_rate = new_ktss[0]["sample_rate"]
@@ -681,28 +705,41 @@ if __name__ == "__main__":
         if new_ktss_loop_start == 0:
             new_ktss_loop_start = 0xFFFFFFFF
 
-        # update the ktsl2stbin file in-place now
-        section_size_offset = cur_entry["offset"] + 4
+        # Preserve the original section header (section_id + section_size + KTSS header)
+        original_section_header = original_data[section_start:section_header_end]
+
+        # Build new section data with preserved header + new audio
+        new_section_data = original_section_header + new_audio_data
+
+        # Replace the entire section but keep the original header
+        new_data = original_data[:section_start] + new_section_data + original_data[section_end:]
+
+        # Update the section size in the new data
+        new_section_total_size = len(new_section_data)
+
+        section_size_offset = section_start + 4  # Offset of section_size within the header
+        section_data_size = HEADER_LENGTH + new_ktss_length
+        new_data[section_size_offset:section_size_offset+4] = pack("<I", section_data_size)
+
+        # Update kns_size (this might need to be the audio data size only)
         kns_size_offset = cur_entry["offset"] + 16
-
-        #if index == max_index: # the very final element also seems to account for the header itself
-        original_data[section_size_offset:section_size_offset+4] = pack("<I", new_ktss_length + HEADER_LENGTH)
-        #else:
-        #    original_data[section_size_offset:section_size_offset+4] = pack("<I", new_ktss_length)
-        original_data[kns_size_offset:kns_size_offset+4] = pack("<I", ktss_section_size_new)
-
-        if index == max_index:
-            offset_end = offset_start + section_size
-        else:
-            offset_end = offset_start + (section_size - HEADER_LENGTH)
-        new_data = original_data[:offset_start] + new_audio_data + original_data[offset_end:]
+        new_data[kns_size_offset:kns_size_offset+4] = pack("<I", ktss_section_size_new)
 
         with open(filename, "wb") as f:
             f.write(new_data)
 
         print(f"Replaced index {index} successfully.")
 
-        # update file size info too
+        # Debug info
+        #print(f"Original section size: {section_size}")
+        #print(f"New section size: {section_data_size}")
+        #print(f"New audio data length: {new_ktss_length}")
+        #print(f"Replaced range: {section_start} to {section_end}")
+        #print(f"Preserved header size: {len(original_section_header)} bytes")
+
+        # Update offset_start for ktsl2asbin (this should point to the audio data start)
+        offset_start = section_header_end  # This is after section_id + section_size + KTSS header
+
         update_file_size(filename)
     else:
         print(f"Error: Not a valid ktsl2stbin file: {filename}")
@@ -744,9 +781,11 @@ if __name__ == "__main__":
                 
                 if success:
                     # now update the ktss_offset values, unless it's the final index
-                    delta = ktss_section_size_new - (section_size - section_headersize - 48)
+                    #delta = ktss_section_size_new - (section_size - section_headersize - 48)
+                    delta = ktss_section_size_new - section_size
                     if delta != 0 and index != max_index:
-                        update_following_ktss_offsets(info2_sections, link_id, delta, data)
+                        #update_following_ktss_offsets(info2_sections, link_id, delta, data)
+                        update_following_ktss_offsets(info2_sections, link_id, delta, data, filename)
 
                     data.flush()
                     data.close()
@@ -820,3 +859,11 @@ if __name__ == "__main__":
                         os.utime(filename2, None)
             else:
                 print(f"No INFO2 match inside KTSR block for link_id {link_id}")
+
+    # After replacement, verify the file is still valid
+    with open(filename, "rb") as f:
+        data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        parsed_after = parse_ktsl2stbin(data)
+        if not parsed_after["is_valid_ktsl2stbin"]:
+            print("ERROR: File corrupted after replacement!")
+            sys.exit(1)
