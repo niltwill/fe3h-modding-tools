@@ -1,242 +1,250 @@
-import json
-import math
-import os
-import struct
-import sys
+import json, struct, os, re, sys
+from BaiCharNames import BAI_CHAR_NAMES
 
-ENTRY_SIZE = 0x18
+ENTRY_SIZE = 0x18  # 24 bytes per entity record
+BLOCK_COUNT = 3
+REGISTRY_START = 250  # entries 250-262 = patrol region registry
 
-def float_from_binary(value):
-    """Convert binary float value to JSON representation, handling NaN case"""
-    # Check if the raw bytes represent 0xFFFFFFFF (special NaN pattern)
-    raw_bytes = struct.pack('<f', value)
-    if raw_bytes == b'\xFF\xFF\xFF\xFF':
-        return "NaN_FFFF"
-    elif math.isnan(value):
-        return "NaN"
-    return value
+# Rotation enum from BaiEnums.bt
+FACING_NAMES = {0:'RightSlightlyUp', 1:'UpSlightlyRight', 2:'Up', 3:'UpLeft',
+                4:'Left', 5:'DownLeft', 6:'Down', 7:'DownRight'}
+BEHAVIOR_NAMES = {0:'Static', 1:'SpecialNPC', 2:'Patrol_A', 3:'Patrol_B', 7:'WaypointEnd'}
+MOVE_MODE_NAMES = {0:'Static', 1:'WalkToInteract', 2:'Patrol'}
 
-def float_to_binary(value):
-    """Convert JSON value to binary float, handling NaN cases"""
-    if value == "NaN_FFFF":
-        # Return the specific 0xFFFFFFFF pattern
-        return struct.unpack('<f', b'\xFF\xFF\xFF\xFF')[0]
-    elif value == "NaN" or (isinstance(value, float) and math.isnan(value)):
-        return float('nan')
-    return float(value)
+# BaiCharNames (enum)
+def get_char_name(bai_char_id: int) -> str:
+    """BAI char_id = game CharID + 1. Strip trailing _N for readability."""
+    raw = BAI_CHAR_NAMES.get(bai_char_id, f'unk_bai{bai_char_id}')
+    return re.sub(r'_\d+$', '', raw)
+
+CHAR_NAME_TO_ID = {}
+for char_id, char_name in BAI_CHAR_NAMES.items():
+    cleaned_name = re.sub(r'_\\d+$', '', char_name)
+    CHAR_NAME_TO_ID[char_name] = char_id
+    CHAR_NAME_TO_ID[cleaned_name] = char_id
+
+def get_char_id(char_name):
+    if isinstance(char_name, int):
+        return char_name
+    cleaned_name = re.sub(r'_\\d+$', '', char_name)
+    return CHAR_NAME_TO_ID.get(cleaned_name, 0)
+
+
+###
+
+def parse_entity(e):
+    """Parse one 24-byte entity record with the correct struct."""
+    char_id, padding, spawn_x, spawn_z, facing_packed = struct.unpack_from('<HHffH', e, 0)
+    ub = e[14:24]   # bytes 14..23 = the 10 behavior bytes
+    facing_dir  = facing_packed & 0xFF
+    record_type = (facing_packed >> 8) & 0xFF
+    return {
+        'char_id': BAI_CHAR_NAMES.get(char_id, f'unk_bai{char_id}'),
+        'padding': padding,
+        'spawn_x': spawn_x,
+        'spawn_z': spawn_z,
+        'facing_dir': facing_dir,
+        'record_type': record_type,
+        'unavailable_flag': ub[0],  # byte 14: +0x0E
+        'behavior_type': ub[1],     # byte 15: +0x0F
+        'patrol_angle': ub[2],      # byte 16: +0x10
+        'unk_0x14C': ub[3],         # byte 17: +0x11
+        'waypoint_flags': ub[4],    # byte 18: +0x12
+        'unk_0x14E': ub[5],         # byte 19: +0x13
+        'move_mode': ub[6],         # byte 20: +0x14
+        'unk_D2_bit5': ub[7],       # byte 21: +0x15
+        'loop_flag': ub[8],         # byte 22: +0x16
+        'unk_0x150': ub[9],         # byte 23: +0x17
+    }
+
+
+def parse_registry_slot(slot4):
+    """Decode one 4-byte slot from the patrol region registry."""
+    return {'warp_dest_A': slot4[0], 'warp_dest_B': slot4[1],
+            'block_flag': slot4[2], 'seq_counter': slot4[3]}
+
 
 def parse_bai_file(filename):
-
-    if filename.strip().lower().endswith(".bai"):
-        print("Input file must have .bai extension, not .bsi!")
-        exit(1)
-
-    with open(filename, "rb") as f:
+    with open(filename, 'rb') as f:
         data = f.read()
 
-    result = {}
-    offset = 0
+    type_hdr, magic, reserved = struct.unpack_from('<3I', data, 0)
+    block_offsets = list(struct.unpack_from('<3I', data, 12))
 
-    # Header (12 bytes)
-    header_fields = struct.unpack_from("<3I", data, offset)
-    result["Header"] = {
-        "Header": header_fields[0],
-        "UnkPointer1": header_fields[1],
-        "UnkPointer2": header_fields[2],
+    FILE_DATA_START = 0x18
+
+    blocks = []
+    registries = []
+    trailing_list = []
+
+    for i in range(BLOCK_COUNT):
+        block_start = FILE_DATA_START + block_offsets[i]
+        if i < BLOCK_COUNT - 1:
+            block_total = (FILE_DATA_START + block_offsets[i + 1]) - block_start
+        else:
+            block_total = len(data) - block_start
+
+        trailing_size = 20
+        entry_bytes = block_total - trailing_size
+        num_entries = entry_bytes // ENTRY_SIZE  # should be 263
+
+        records = []
+        registry_slots = []
+
+        for j in range(num_entries):
+            off = block_start + j * ENTRY_SIZE
+            e = data[off:off + ENTRY_SIZE]
+
+            if j >= REGISTRY_START:
+                # Entries 250-262: patrol region registry (6 slots per entry)
+                for slot_i in range(6):
+                    slot4 = e[slot_i * 4: slot_i * 4 + 4]
+                    registry_slots.append(parse_registry_slot(slot4))
+            else:
+                records.append(parse_entity(e))
+
+        # Trailing patrol entity indices
+        trailing_off = block_start + num_entries * ENTRY_SIZE
+        trailing_indices = list(struct.unpack_from('>5I', data, trailing_off))
+
+        blocks.append(records)
+        registries.append(registry_slots)
+        trailing_list.append(trailing_indices)
+
+    return {
+        'Header': {'TypeHeader': hex(type_hdr), 'Magic': hex(magic), 'Reserved': hex(reserved)},
+        'BlockOffsets': [hex(o) for o in block_offsets],
+        'Blocks': blocks,
+        'PatrolRegistries': registries,   # 3 registries, each 78 slots
+        'TrailingPatrolIndices': trailing_list,
     }
-    offset += 12
 
-    # PTR Table (3x 4 bytes = 12 bytes)
-    ptr_table = struct.unpack_from("<3I", data, offset)
-    result["RelativeOffsets"] = [{"offset": hex(o)} for o in ptr_table]
-    offset += 12
 
-    # Check if all pointers are 0x00 - indicates single route structure
-    if all(ptr == 0 for ptr in ptr_table):
-        # Single route mode - process all data from offset 0x18 to EOF as one route
-        total_data_size = len(data) - 0x18
-        total_entries = total_data_size // ENTRY_SIZE
-        remaining_bytes = total_data_size % ENTRY_SIZE
+def find_terminator(records):
+    for i, r in enumerate(records):
+        if r['record_type'] > 3:
+            return i
+    return len(records)
 
-        route_data = []
-        for j in range(total_entries):
-            base = 0x18 + j * ENTRY_SIZE
-            chunk = struct.unpack_from("<HHffH10s", data, base)
-            character = {
-                "CharacterID": chunk[0],
-                "Padding": chunk[1],
-                "Coord1": float_from_binary(chunk[2]),
-                "Coord2": float_from_binary(chunk[3]),
-                "RoomID": chunk[4],
-                "UnknownBytes": list(chunk[5]),
-            }
-            route_data.append(character)
 
-        # Parse any remaining trailing bytes after the last entry
-        trailing_data = []
-        if remaining_bytes > 0:
-            trailing_offset = 0x18 + total_entries * ENTRY_SIZE
-            trailing_bytes = struct.unpack_from(f"<{remaining_bytes}B", data, trailing_offset)
-            trailing_data = list(trailing_bytes)
+def print_block_summary(parsed, block_idx):
+    block = parsed['Blocks'][block_idx]
+    trailing = parsed['TrailingPatrolIndices'][block_idx]
+    registry = parsed['PatrolRegistries'][block_idx]
 
-        result["Routes"] = [route_data]  # Single route in array
-        result["RouteTrailingData"] = [trailing_data]  # Store trailing bytes
-        result["SingleRouteMode"] = True
-    else:
-        # Normal three-route mode
-        total_entry_count = (len(data) - 0x18) // ENTRY_SIZE
-        entries_per_route = total_entry_count // 3
+    term = find_terminator(block)
+    print(f"  Block {block_idx}: {term} real records (terminator at index {term})")
 
-        characters_by_route = []
-        route_trailing_data = []
+    from collections import Counter
+    bt = Counter(r['behavior_type'] for r in block[:term])
+    print(f"  Behavior types: {dict(bt)}")
+    print(f"  Trailing patrol indices: {trailing}")
 
-        for i in range(3):
-            route_offset = ptr_table[i] + 24
-            route_data = []
-            for j in range(entries_per_route):
-                base = route_offset + j * ENTRY_SIZE
-                chunk = struct.unpack_from("<HHffH10s", data, base)
-                character = {
-                    "CharacterID": chunk[0],
-                    "Padding": chunk[1],
-                    "Coord1": float_from_binary(chunk[2]),
-                    "Coord2": float_from_binary(chunk[3]),
-                    "RoomID": chunk[4],
-                    "UnknownBytes": list(chunk[5]),
-                }
-                route_data.append(character)
-            characters_by_route.append(route_data)
-
-            # Parse the 20 trailing bytes after this route block
-            trailing_offset = route_offset + entries_per_route * ENTRY_SIZE
-            trailing_bytes = struct.unpack_from("<20B", data, trailing_offset)
-            route_trailing_data.append(list(trailing_bytes))
-
-        result["Routes"] = characters_by_route
-        result["RouteTrailingData"] = route_trailing_data
-        result["SingleRouteMode"] = False
-    return result
+    non_empty = [(s['seq_counter'], s['warp_dest_A'], s['warp_dest_B'])
+                 for s in registry if s['warp_dest_A'] != 0 or s['warp_dest_B'] != 0]
+    print(f"  Registry: {len(non_empty)} non-empty slots (out of 78)")
+    print(f"  First 5 real records:")
+    for r in block[:5]:
+        btype = BEHAVIOR_NAMES.get(r['behavior_type'], f'?{r["behavior_type"]}')
+        facing = FACING_NAMES.get(r['facing_dir'], f'?{r["facing_dir"]}')
+        char_name = get_char_name(r['char_id'])
+        extra = ''
+        if r['patrol_angle']: extra += f' angle={r["patrol_angle"]}'
+        if r['unavailable_flag']: extra += ' [HIDDEN]'
+        print(f"    char={char_name} x={r['spawn_x']:8.1f} z={r['spawn_z']:8.1f} "
+              f"face={facing} type={btype}{extra}")
 
 
 def repack_to_bai(json_file, output_file=None):
-    with open(json_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    with open(json_file, 'r', encoding='utf-8') as f:
+        parsed = json.load(f)
 
-    header = data["Header"]
-    ptr_table = [int(entry["offset"], 16) for entry in data["RelativeOffsets"]]
-    routes = data["Routes"]
-    route_trailing_data = data.get("RouteTrailingData", [[], [], []])  # Default to empty if missing
-    single_route_mode = data.get("SingleRouteMode", False)
+    block_offsets = [int(o, 16) for o in parsed['BlockOffsets']]
+    FILE_DATA_START = 0x18
 
-    if single_route_mode:
-        # Single route mode - calculate buffer size from route entries plus any trailing data
-        total_entries = len(routes[0])
-        trailing_bytes_count = len(route_trailing_data[0]) if route_trailing_data and route_trailing_data[0] else 0
-        buffer_size = 0x18 + total_entries * ENTRY_SIZE + trailing_bytes_count
-    else:
-        # Normal three-route mode - calculate buffer size accounting for 20 bytes after each route block
-        entries_per_route = len(routes[0])
-        assert all(len(route) == entries_per_route for route in routes), "Mismatched route entry counts."
+    last_off = FILE_DATA_START + block_offsets[-1]
+    last_entries = len(parsed['Blocks'][-1]) + 13  # 250 real records + 13 registry entries
+    buf_size = last_off + last_entries * ENTRY_SIZE + 20
+    buf = bytearray(buf_size)
 
-        max_end = 0
-        for i in range(3):
-            base_offset = ptr_table[i] + 24
-            end_offset = base_offset + entries_per_route * ENTRY_SIZE + 20  # Add 20 bytes for trailing data
-            if end_offset > max_end:
-                max_end = end_offset
-        buffer_size = max_end
+    hdr = parsed['Header']
+    struct.pack_into('<I', buf, 0, int(hdr['TypeHeader'], 16))
+    struct.pack_into('<I', buf, 4, int(hdr['Magic'], 16))
+    struct.pack_into('<I', buf, 8, int(hdr['Reserved'], 16))
+    for i, o in enumerate(block_offsets):
+        struct.pack_into('<I', buf, 12 + i * 4, o)
 
-    buffer = bytearray(buffer_size)
+    for i in range(BLOCK_COUNT):
+        block_start = FILE_DATA_START + block_offsets[i]
+        records = parsed['Blocks'][i]
+        registry = parsed['PatrolRegistries'][i]
+        trailing = parsed['TrailingPatrolIndices'][i]
 
-    # Write Header
-    struct.pack_into("<3I", buffer, 0, header["Header"], header["UnkPointer1"], header["UnkPointer2"])
+        # Write entity records (0..249)
+        for j, r in enumerate(records):
+            off = block_start + j * ENTRY_SIZE
+            facing_packed = (r['record_type'] << 8) | (r['facing_dir'] & 0xFF)
+            char_id = r['char_id'] if isinstance(r['char_id'], int) else get_char_id(r['char_id'])
+            struct.pack_into('<HHffH', buf, off, char_id, r['padding'], r['spawn_x'], r['spawn_z'], facing_packed)
+            buf[off+14:off+24] = bytes([
+                r['unavailable_flag'], r['behavior_type'], r['patrol_angle'],
+                r['unk_0x14C'], r['waypoint_flags'], r['unk_0x14E'],
+                r['move_mode'], r['unk_D2_bit5'], r['loop_flag'], r['unk_0x150']
+            ])
 
-    # Write PTR Table
-    for i in range(3):
-        struct.pack_into("<I", buffer, 0x0C + i * 4, ptr_table[i])
+        # Write registry entries (250..262)
+        for ri, slot in enumerate(registry):
+            entry_i = ri // 6
+            slot_i  = ri %  6
+            off = block_start + (REGISTRY_START + entry_i) * ENTRY_SIZE + slot_i * 4
+            buf[off] = slot['warp_dest_A'] & 0xFF
+            buf[off+1] = slot['warp_dest_B'] & 0xFF
+            buf[off+2] = slot['block_flag'] & 0xFF
+            buf[off+3] = slot['seq_counter'] & 0xFF
 
-    if single_route_mode:
-        # Single route mode - write all entries sequentially from offset 0x18
-        for j, entry in enumerate(routes[0]):
-            off = 0x18 + j * ENTRY_SIZE
-            unknown_bytes = bytes(entry["UnknownBytes"])
-            if len(unknown_bytes) != 10:
-                raise ValueError(f"Invalid UnknownBytes length at index {j}")
-            struct.pack_into("<HHffH10s", buffer, off,
-                entry["CharacterID"],
-                entry["Padding"],
-                float_to_binary(entry["Coord1"]),
-                float_to_binary(entry["Coord2"]),
-                entry["RoomID"],
-                unknown_bytes
-            )
-
-        # Write any trailing data after the last entry
-        if route_trailing_data and route_trailing_data[0]:
-            trailing_offset = 0x18 + len(routes[0]) * ENTRY_SIZE
-            trailing_bytes = bytes(route_trailing_data[0])
-            for i, byte_val in enumerate(trailing_bytes):
-                struct.pack_into("<B", buffer, trailing_offset + i, byte_val)
-    else:
-        # Normal three-route mode - write routes and their trailing data
-        for i in range(3):
-            base_offset = ptr_table[i] + 24
-            # Write route entries
-            for j, entry in enumerate(routes[i]):
-                off = base_offset + j * ENTRY_SIZE
-                unknown_bytes = bytes(entry["UnknownBytes"])
-                if len(unknown_bytes) != 10:
-                    raise ValueError(f"Invalid UnknownBytes length at route {i}, index {j}")
-                struct.pack_into("<HHffH10s", buffer, off,
-                    entry["CharacterID"],
-                    entry["Padding"],
-                    float_to_binary(entry["Coord1"]),
-                    float_to_binary(entry["Coord2"]),
-                    entry["RoomID"],
-                    unknown_bytes
-                )
-
-            # Write trailing 20 bytes for this route
-            if i < len(route_trailing_data) and route_trailing_data[i]:
-                trailing_offset = base_offset + entries_per_route * ENTRY_SIZE
-                trailing_bytes = bytes(route_trailing_data[i])
-                if len(trailing_bytes) != 20:
-                    raise ValueError(f"Invalid trailing data length for route {i}: expected 20, got {len(trailing_bytes)}")
-                struct.pack_into("<20B", buffer, trailing_offset, *trailing_bytes)
+        # Write trailing
+        trail_off = block_start + (REGISTRY_START + 13) * ENTRY_SIZE
+        for idx in (trailing or [0, 0, 0, 0, 0]):
+            struct.pack_into('>I', buf, trail_off, idx)
+            trail_off += 4
 
     if not output_file:
-        output_file = os.path.splitext(json_file)[0] + "_repacked.bai"
-
-    with open(output_file, "wb") as f:
-        f.write(buffer)
-
-    print(f"Repacked: {output_file}")
+        output_file = os.path.splitext(json_file)[0] + '.bai'
+    with open(output_file, 'wb') as f:
+        f.write(buf)
+    print(f'Repacked: {output_file}')
 
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage:")
-        print("  python monasterySpawnData_bai.py dump <input.bai>")
-        print("  python monasterySpawnData_bai.py repack <input.json>")
-        print("  [common\scenario\castle\*.bai]")
+        print('Usage:')
+        print('  python monasterySpawnData_bai.py dump <input.bai>')
+        print('  python monasterySpawnData_bai.py repack <input.json>')
+        print('  python monasterySpawnData_bai.py summary <input.bai>')
         return
 
     mode = sys.argv[1].lower()
     input_file = sys.argv[2]
 
-    if mode == "dump":
-        parsed_data = parse_bai_file(input_file)
-        output_file = os.path.splitext(input_file)[0] + ".json"
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(parsed_data, f, indent=4)
-        print(f"Dumped: {output_file}")
+    if mode == 'dump':
+        parsed = parse_bai_file(input_file)
+        out = os.path.splitext(input_file)[0] + '.json'
+        with open(out, 'w', encoding='utf-8') as f:
+            json.dump(parsed, f, indent=2)
+        print(f'Dumped: {out}')
 
-    elif mode == "repack":
+    elif mode == 'summary':
+        parsed = parse_bai_file(input_file)
+        print(f'File: {input_file}')
+        print(f'Header: {parsed["Header"]}')
+        print(f'BlockOffsets: {parsed["BlockOffsets"]}')
+        print()
+        for i in range(BLOCK_COUNT):
+            print_block_summary(parsed, i)
+            print()
+
+    elif mode == 'repack':
         repack_to_bai(input_file)
 
-    else:
-        print(f"Unknown mode: {mode}")
-        print("Use 'dump' or 'repack'.")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

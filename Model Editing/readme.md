@@ -1,6 +1,6 @@
 # FE3H - Model Modding
 
-This may not be able to do much for now, besides being able to rip/get the 3D models from the game. I would have to carefully study the structure of G1M to understand how to recreate it (to be able to actually change 3D models), which is a very complex topic. The [existing tools](https://github.com/three-houses-research-team/Throne-of-Knowledge/wiki/Editing-Models) seem to have been lost.
+This may not be able to do much for now, besides being able to rip/get the 3D models from the game and maybe some light editing. I would have to carefully study the structure of these binary formats to understand how to recreate it, which is a very complex topic. The [tools](https://github.com/niltwill/fe3h-modding-tools/tree/main/Model Editing/Tools) contain an archived version of [FETH Model Tools](https://github.com/three-houses-research-team/Throne-of-Knowledge/wiki/Editing-Models) - which can be used as the guide.
 
 As that wiki page explains there, what we need is the G1M files, however, these are usually in compressed binary files. The base game model files are located in `nx\action\model` (3120-4012). DLCs or updates can change or add new models (**dlc2** and **dlc6** add new models). Remember that using the updated models from the patches is recommended to get the latest versions of those models. Easiest way to decompress the "bin.gz" files is to use the [THAT](https://github.com/niltwill/fe3h-modding-tools/tree/main/Apps/THAT) app.
 
@@ -112,3 +112,19 @@ Anyway, in Noesis, you can check out the model file, but you can't really do edi
 <img src="img/modeling-3.jpg" alt="Blender Example 1" width="650" height="347">\
 <img src="img/modeling-4.jpg" alt="Blender Example 2" width="650" height="347">\
 <img src="img/modeling-5.jpg" alt="Blender Example 3" width="650" height="347">
+
+---
+
+So what to do for model editing? Follow the PDF guide (see: "Tools" folder), and when finished, use `bingz-repacker.py` to recreate the packed model binary:
+
+```
+python bingz-repacker.py <input_folder> <original_model_name.bin> [optional output_name]
+```
+
+Optionally, you can output to a different filename, if you don't want to replace the existing one. For example:
+
+```
+python bingz-repacker.py ""3120 - MC000_BylethM_0_P_Body" "3120 - MC000_BylethM_0_P_Body.bin" "3120-repacked.bin"
+```
+
+The G1T model textures can be extracted, but the existing tools on my repo don't seem to be able to repack them properly (yet).

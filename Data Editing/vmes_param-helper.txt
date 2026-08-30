@@ -1,0 +1,39 @@
+*VMes_param.dat files*
+
+Each section is 16 bytes long:
+
+1. uint (2 bytes) - VmesBlockID
+2. uint (2 bytes) - BylethGender
+3. uint (2 bytes) - DialogueConditional1
+4. uint (2 bytes) - DialogueConditional2
+5. uint (2 bytes) - CharID
+6. uint (2 bytes) - VoiceLineID
+7. uint (2 bytes) - PortraitExpression?
+8. uint (2 bytes) - Animation?
+
+0xFFFF or 65535 anywhere means it is not set.
+
+After the Vmes Block ID (for use in the BSI), the following three fields have values that are 0, 10 or 20. These are used for conditional checks.
+
+1. BylethGender:
+ 0 - display for both genders
+ 10 - display only for male Byleth
+ 20 - display only for female Byleth
+
+2. DialogueConditional1:
+ 0 - no limitations
+ 10 - display only initially? (it will not trigger again, only for the first time)
+ 20 - display only after first dialogue? (will only trigger after the first dialogue concluded)
+
+3. DialogueConditional2:
+ 0 - no limitations
+ 10 - display only initially? (it will not trigger again, only for the first time)
+ 20 - display only after first dialogue? (will only trigger after the first dialogue concluded)
+
+Not sure if what is the actual difference between DialogueConditional1 and DialogueConditional2 - they seem to do the same thing? Sometimes both are set, other times only one of them. This is only an assumption though. It might be that one could get updated (marked as untalked again due to something) and the other (the second one) doesn't change that? Could be that different BSI actions require one or the other.
+
+---
+
+Each 16 bytes block corresponds to its own line in the corresponding Vmes file (dialogue text file). So if you divide the length of the bytes by 16, you should get the same number as the text entries in that file.
+
+E.g. 9051.bin has 1616 bytes, which is 1616/16=101 - the same number of lines in 10958.bin, starting from 0 (101 text strings). So each of these strings correspond to their own 16 byte section.

@@ -1,0 +1,57 @@
+Languages: 0-11
+
+JP (0) - default
+ENG_E (1)
+ENG_U (2)
+GER (3)
+FRA_E (4)
+FRA_U (5)
+ESP_E (6)
+ESP_U (7)
+ITA (8)
+KOR (9)
+TWN (10)
+CHN (11)
+
+=========
+Base game
+=========
+ID 0 - msgdata.bin (main string game data - 4 tables)
+ * 0: JP debug strings (0-99)
+ * 1: Generic game strings (menu/UI, etc.) (0-6805)
+ * 2: Game mechanics/descriptions (0-15396)
+ * 3: DLC-only strings (0-441)
+
+ID 1 - scrdata.bin (monastery string data - 8 tables)
+ * 0: Various (0-6699):
+ - Section A1: liked gift strings
+ - Section A2: neutral/disliked gift strings
+ - Section B1: liked meal strings
+ - Section B2: disliked meal strings
+ - Section C1: good cooking together strings
+ - Section C2: bad cooking together strings
+ - ... (seminar stuff also here, needs more time to map it all out)
+
+ * 1: Student lecture questions & answers (0-99) | used range: 2-34
+ * 2: Quest reported character messages - quest-related (description, progression, status, etc.) strings (0-301) | used range: various
+ * 3: Seems to be help messages, but maybe without a specific guiding character? (0-150) | used range: 0-25
+ * 4: Monastery activity strings (NPC/shopkeeper greetings, purchase/interactivity lines, also includes Byleth's "silent" quotes inside the monastery) (0-412)  | used range: various
+ * 5: Special event, tournament strings, some shopkeeper introduction (0-69) | used range: 0-20, 26-27, 29-64
+ * 6: Goal change quotes (https://fireemblem.fandom.com/wiki/Tutoring/Goals#Goal_Change_Quotes) (0-34) | used range: 2-25, 27, 34
+ * 7: Summary of table data for 200 entries (sections?)
+
+ID 2 - gwscrdata.bin (group work, i.e. group tasks-related) (0-1089)
+
+ID 3 - tuscrdata.bin (tutorial stuff - 2 tables)
+ * 0: lord student description + mechanic introduction strings (0-213)
+ * 1: game guide strings (0-623)
+
+ID 4 - btlscrdata.bin (battle quotes, like level-ups, deaths, skill mastery) (0-1199)
+
+=============
+DLC additions
+=============
+31160 + 3681 = 34841 - rom:/patch4/common/not_exists_file (msgdataDLC.bin - probably merged into msgdata.bin's 3rd table, and not a separate file)
+31160 + 3682 = 34842 - btlscrdataDLC.bin
+31160 + 3683 = 34843 - scrdataDLC.bin
+31160 + 3684 = 34844 - scrgwdataDLC.bin

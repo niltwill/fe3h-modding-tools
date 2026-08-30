@@ -1,0 +1,16 @@
+Base game (INFO0): 0-31159
+INFO1 (patch4): 31160-35221
+DLCs: 35224-36282
+
+INFO1: 31160 + ID
+DLC: 35223 + ID
+
+First real INFO1 entry: 31162 - NR_05_00.bin (2 + 31160)
+Because 31160 does not exist "not_exists_file" (0 + 31160)
+
+First DLC entry: 35224 - 1.bin (1 + 35223)
+
+---
+
+Dead slot: 35222 (explicitly skipped)
+Unused: 35223 (would need ID 0 in a DLC), 36282 is valid too
